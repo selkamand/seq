@@ -41,13 +41,21 @@ pub trait Base: Copy + Eq + fmt::Debug {
     /// - printing
     /// - writing FASTA/FASTQ
     /// - building `String`s
-    fn to_ascii_upper(self) -> u8;
+    fn to_ascii(self) -> u8;
+
+    fn to_char(self) -> char {
+        self.to_ascii() as char
+    }
 
     /// Convert this base to a lowercase ASCII byte (e.g. `b'a'`).
     ///
     /// Lowercase bases are often used for “soft-masking” (e.g. low-confidence regions),
     /// even though the biological base is the same.
     fn to_ascii_lower(self) -> u8;
+
+    fn is_unambiguous(self) -> bool {
+        !self.is_ambiguous()
+    }
 
     /// Parse a single ASCII byte into a base.
     ///
@@ -181,7 +189,7 @@ impl Base for DnaBase {
         }
     }
 
-    fn to_ascii_upper(self) -> u8 {
+    fn to_ascii(self) -> u8 {
         match self {
             DnaBase::A => b'A',
             DnaBase::C => b'C',
@@ -281,7 +289,7 @@ impl Base for RnaBase {
         }
     }
 
-    fn to_ascii_upper(self) -> u8 {
+    fn to_ascii(self) -> u8 {
         match self {
             RnaBase::A => b'A',
             RnaBase::C => b'C',
@@ -374,11 +382,11 @@ mod tests {
     fn ascii_rendering_is_consistent() {
         // Upper then lower should match ASCII casing expectations.
         let b = DnaBase::G;
-        assert_eq!(b.to_ascii_upper(), b'G');
+        assert_eq!(b.to_ascii(), b'G');
         assert_eq!(b.to_ascii_lower(), b'g');
 
         let r = RnaBase::U;
-        assert_eq!(r.to_ascii_upper(), b'U');
+        assert_eq!(r.to_ascii(), b'U');
         assert_eq!(r.to_ascii_lower(), b'u');
     }
 
