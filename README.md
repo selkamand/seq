@@ -17,12 +17,12 @@ any Rust code that needs reliable nucleotide sequence handling.
 
 ## Design goals
 
-- **Correctness first**: invalid sequences are rejected at construction time
+- **Correctness first**: invalid sequences are rejected at construction
 - **Type safety**: DNA and RNA are distinct types, not runtime flags
-- **Strict alphabets**: DNA and RNA reject invalid bases at construction time (e.g. `U` in DNA, `T` in RNA)
-- **Explicit ambiguity handling**: ambiguity is modeled, not ignored
+- **Strict alphabets**: DNA and RNA reject invalid bases at construction  (e.g. `U` in DNA, `T` in RNA)
+- **Explicit ambiguity handling**: ambiguous IUPAC bases (S/W/N) are modeled, not ignored
 - **Ergonomic by default**: core sequence operations use copy-on-modify semantics, making them easy to compose and safe for downstream use
-- **Explicit performance opt-ins**: in-place mutation methods are provided for performance- or memory-critical workflows where mutation is acceptable
+- **Explicit performance opt-ins**: in-place modifying methods are provided for performance- or memory-critical workflows
 - **Small surface area**: no I/O, no parsing frameworks, no CLI
 - **Composable**: intended to be embedded in larger bioinformatics pipelines
 
