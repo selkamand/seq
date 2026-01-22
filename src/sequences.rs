@@ -114,9 +114,10 @@ impl<B: Base> Seq<B> {
     /// ```
     ///
     /// # Returns
+    /// Returns the middle base of the sequence.
     ///
     /// - `Some(&B)` if the sequence length is odd
-    /// - `None` if the sequence is empty or even-length/// Returns the middle base of the sequence.
+    /// - `None` if the sequence is empty or even-length
     pub fn middlebase(&self) -> Option<&B> {
         let len = self.len();
 
@@ -139,6 +140,18 @@ impl<B: Base> Seq<B> {
         Seq { seq: newseq }
     }
 
+    /// Returns the complement of the sequence.
+    ///
+    /// Modifies an existing `Seq<B>` where each base is replaced with its complement
+    /// (e.g. DNA: A↔T, C↔G, including IUPAC ambiguity complements).
+    ///
+    ///
+    pub fn complement_in_place(&mut self) {
+        for base in &mut self.seq {
+            *base = base.complement();
+        }
+    }
+
     /// Returns the reverse-complement of the sequence.
     ///
     /// This creates a new `Seq<B>` where the sequence order is reversed and each
@@ -148,6 +161,23 @@ impl<B: Base> Seq<B> {
     pub fn reverse_complement(&self) -> Seq<B> {
         let newseq: Vec<B> = self.seq.iter().map(|c| c.complement()).rev().collect();
         Seq { seq: newseq }
+    }
+
+    /// Reverse Complements the sequence in place
+    pub fn reverse_complement_in_place(&mut self) {
+        self.complement_in_place();
+        self.rev_in_place();
+    }
+
+    /// Reverse the sequence (in place)
+    pub fn rev(&self) -> Seq<B> {
+        let newseq: Vec<B> = self.seq.iter().rev().copied().collect();
+        Seq { seq: newseq }
+    }
+
+    /// Reverse sequence in place
+    pub fn rev_in_place(&mut self) {
+        self.seq.reverse();
     }
 
     /// Returns the alphabet for this sequence (DNA or RNA).
@@ -184,6 +214,15 @@ impl<B: Base> Seq<B> {
         self.seq.iter().any(|b| b.is_ambiguous())
     }
 
+    /// Returns `true` if all bases in the sequence are unambiguous`
+    pub fn all_unambiguous(&self) -> bool {
+        !self.any_ambiguous()
+    }
+
+    /// Returns `true` if sequence is palindromic (sequence matches its reverse complement)
+    pub fn is_palindromic(&self) -> bool {
+        todo!();
+    }
     /// Returns `true` if the middle base of the sequence is a pyrimidine.
     ///
     /// This is a convenience predicate commonly used for motif / context logic.
@@ -202,9 +241,7 @@ impl<B: Base> Seq<B> {
         let middlebase = self.middlebase();
 
         match middlebase {
-            Some(base) => base
-                .chemical_class()
-                .is_some_and(|class| class == ChemClass::Pyrimidine),
+            Some(base) => base.chemical_class().eq(&ChemClass::Pyrimidine),
             None => false,
         }
     }
@@ -286,6 +323,23 @@ impl<B: Base> Seq<B> {
         })
     }
 
+    pub fn subseq_in_place(&mut self, start: usize, end: usize) -> Result<(), SeqError> {
+        if start > end || end > self.len() {
+            return Err(SeqError::InvalidSlice {
+                start,
+                end,
+                len: self.len(),
+            });
+        }
+        // // Remove everything after `end`
+        // self.seq.drain(end..);
+        // // Remove everything before `start`
+        // self.seq.drain(..start);
+        self.seq.copy_within(start..end, 0);
+        self.seq.truncate(end - start);
+        Ok(())
+    }
+
     /// Extract a subsequence as a **borrowed view** (`&[B]`) with **no copying**.
     ///
     /// This method uses **0-based indexing** and a **half-open interval**: `[start, end)`.
@@ -330,6 +384,54 @@ impl<B: Base> Seq<B> {
 
         Ok(&self.seq[start..end])
     }
+
+    /// Returns the sequence as a read-only slice of bases.
+    ///
+    /// This provides **borrowed access** to the underlying contiguous storage
+    /// without allocating or copying.
+    ///
+    /// ## What this allows
+    ///
+    /// The returned slice can be used to:
+    /// - index individual bases
+    /// - iterate efficiently over the sequence
+    /// - take subslices (e.g. for k-mer extraction)
+    /// - use standard slice methods such as `windows`, `chunks`, and `split_at`
+    ///
+    /// ## What this does *not* allow
+    ///
+    /// - mutation of the sequence
+    /// - resizing or reallocation
+    /// - violating any invariants of `Seq`
+    ///
+    /// ## Lifetime and safety
+    ///
+    /// The returned slice is valid only for the lifetime of `&self`.
+    /// Rust’s borrow checker guarantees that the sequence cannot be mutated
+    /// while the slice is in use.
+    ///
+    /// ## Performance
+    ///
+    /// This method is **zero-cost**:
+    /// - no allocation
+    /// - no copying
+    /// - compiles down to returning a pointer and a length
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use seqlib::sequences::DnaSeq;
+    /// use seqlib::base::Base;
+    /// let seq = DnaSeq::new("ACGT").unwrap();
+    /// let bases = seq.as_slice();
+    ///
+    /// assert_eq!(bases.len(), 4);
+    /// assert_eq!(bases[0].to_char(), 'A');
+    /// ```
+    pub fn as_slice(&self) -> &[B] {
+        &self.seq
+    }
+
     /// Parses and validates a sequence from a string slice.
     ///
     /// This is the main construction “gatekeeper”: it converts each ASCII character

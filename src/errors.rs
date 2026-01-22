@@ -4,12 +4,6 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum SeqError {
     #[error(
-        "Invalid sequence for {alphabet}: found unsupported symbol(s): {invalid}. \
-         Allowed symbols are standard bases plus IUPAC ambiguity codes for {alphabet}."
-    )]
-    InvalidCharacters { alphabet: Alphabet, invalid: String },
-
-    #[error(
         "Invalid {alphabet} base: '{invalid}'. \
          Allowed symbols are standard bases plus IUPAC ambiguity codes for {alphabet}."
     )]

@@ -84,13 +84,51 @@ pub trait Base: Copy + Eq + fmt::Debug + fmt::Display {
     fn is_ambiguous(self) -> bool;
 
     /// Classify the type of Base (Purine Vs Pyrimidine vs Uncertain)
-    fn chemical_class(self) -> Option<ChemClass>;
+    fn chemical_class(self) -> ChemClass;
 }
 
+/// Chemical class of a nucleotide base with respect to purine/pyrimidine identity.
+///
+/// This enum describes whether a base:
+/// - is **certainly** a purine,
+/// - is **certainly** a pyrimidine, or
+/// - is **ambiguous** with respect to chemical class.
+///
+/// ## Important semantics
+///
+/// `ChemClass::Ambiguous` does **not** mean “unknown” or “invalid”.
+/// It means the base represents **multiple possible concrete bases**
+/// that span *both* chemical classes.
+///
+/// Examples:
+/// - `R` (A or G) → `Purine`
+/// - `Y` (C or T/U) → `Pyrimidine`
+/// - `S` (C or G) → `Ambiguous`
+/// - `W` (A or T/U) → `Ambiguous`
+/// - `N` (any base) → `Ambiguous`
+///
+/// This classification is intended as a **guard rail** for downstream algorithms:
+/// callers can require a *certain* chemical class and explicitly reject
+/// ambiguous symbols rather than silently guessing.
+///
+/// ## Design note
+///
+/// For the supported DNA/RNA alphabets, every valid base is always either
+/// a purine or a pyrimidine at the concrete level. Therefore, ambiguity here
+/// only ever means “could be either”, never “neither”.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ChemClass {
+    /// The base is certainly a purine (A or G, or ambiguity codes that
+    /// only expand to purines, e.g. `R`).
     Purine,
+
+    /// The base is certainly a pyrimidine (C or T/U, or ambiguity codes that
+    /// only expand to pyrimidines, e.g. `Y`).
     Pyrimidine,
+
+    /// The base is ambiguous with respect to chemical class and may represent
+    /// either a purine or a pyrimidine (e.g. `S`, `W`, `K`, `M`, `N`).
+    Ambiguous,
 }
 
 /// DNA nucleotide symbols including IUPAC ambiguity codes.
@@ -249,23 +287,23 @@ impl Base for DnaBase {
         !matches!(self, DnaBase::A | DnaBase::C | DnaBase::G | DnaBase::T)
     }
 
-    fn chemical_class(self) -> Option<ChemClass> {
+    fn chemical_class(self) -> ChemClass {
         match self {
-            DnaBase::A => Some(ChemClass::Purine),
-            DnaBase::G => Some(ChemClass::Purine),
-            DnaBase::C => Some(ChemClass::Pyrimidine),
-            DnaBase::T => Some(ChemClass::Pyrimidine),
-            DnaBase::N => None,
-            DnaBase::R => Some(ChemClass::Purine),
-            DnaBase::Y => Some(ChemClass::Pyrimidine),
-            DnaBase::S => None,
-            DnaBase::W => None,
-            DnaBase::K => None,
-            DnaBase::M => None,
-            DnaBase::B => None,
-            DnaBase::D => None,
-            DnaBase::H => None,
-            DnaBase::V => None,
+            DnaBase::A => ChemClass::Purine,
+            DnaBase::G => ChemClass::Purine,
+            DnaBase::C => ChemClass::Pyrimidine,
+            DnaBase::T => ChemClass::Pyrimidine,
+            DnaBase::N => ChemClass::Ambiguous,
+            DnaBase::R => ChemClass::Purine,
+            DnaBase::Y => ChemClass::Pyrimidine,
+            DnaBase::S => ChemClass::Ambiguous,
+            DnaBase::W => ChemClass::Ambiguous,
+            DnaBase::K => ChemClass::Ambiguous,
+            DnaBase::M => ChemClass::Ambiguous,
+            DnaBase::B => ChemClass::Ambiguous,
+            DnaBase::D => ChemClass::Ambiguous,
+            DnaBase::H => ChemClass::Ambiguous,
+            DnaBase::V => ChemClass::Ambiguous,
         }
     }
 }
@@ -375,23 +413,23 @@ impl Base for RnaBase {
         !matches!(self, RnaBase::A | RnaBase::C | RnaBase::G | RnaBase::U)
     }
 
-    fn chemical_class(self) -> Option<ChemClass> {
+    fn chemical_class(self) -> ChemClass {
         match self {
-            RnaBase::A => Some(ChemClass::Purine),
-            RnaBase::G => Some(ChemClass::Purine),
-            RnaBase::C => Some(ChemClass::Pyrimidine),
-            RnaBase::U => Some(ChemClass::Pyrimidine),
-            RnaBase::N => None,
-            RnaBase::R => Some(ChemClass::Purine),
-            RnaBase::Y => Some(ChemClass::Pyrimidine),
-            RnaBase::S => None,
-            RnaBase::W => None,
-            RnaBase::K => None,
-            RnaBase::M => None,
-            RnaBase::B => None,
-            RnaBase::D => None,
-            RnaBase::H => None,
-            RnaBase::V => None,
+            RnaBase::A => ChemClass::Purine,
+            RnaBase::G => ChemClass::Purine,
+            RnaBase::C => ChemClass::Pyrimidine,
+            RnaBase::U => ChemClass::Pyrimidine,
+            RnaBase::N => ChemClass::Ambiguous,
+            RnaBase::R => ChemClass::Purine,
+            RnaBase::Y => ChemClass::Pyrimidine,
+            RnaBase::S => ChemClass::Ambiguous,
+            RnaBase::W => ChemClass::Ambiguous,
+            RnaBase::K => ChemClass::Ambiguous,
+            RnaBase::M => ChemClass::Ambiguous,
+            RnaBase::B => ChemClass::Ambiguous,
+            RnaBase::D => ChemClass::Ambiguous,
+            RnaBase::H => ChemClass::Ambiguous,
+            RnaBase::V => ChemClass::Ambiguous,
         }
     }
 }
