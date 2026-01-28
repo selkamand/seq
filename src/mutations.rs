@@ -103,10 +103,13 @@ pub enum TiTv {
 }
 
 impl TiTv {
-    pub fn from_chemical_class(reference: ChemClass, alternative: ChemClass) -> TiTv {
-        match reference == alternative {
-            true => TiTv::Transition,
-            false => TiTv::Transversion,
+    pub fn from_chemical_class(reference: ChemClass, alternative: ChemClass) -> Option<TiTv> {
+        match (reference, alternative) {
+            (ChemClass::Purine, ChemClass::Purine) => Some(TiTv::Transition),
+            (ChemClass::Pyrimidine, ChemClass::Pyrimidine) => Some(TiTv::Transition),
+            (ChemClass::Purine, ChemClass::Pyrimidine) => Some(TiTv::Transversion),
+            (ChemClass::Pyrimidine, ChemClass::Purine) => Some(TiTv::Transversion),
+            _ => None, // If either chemical class is ambiguous, return None
         }
     }
 }
@@ -135,9 +138,6 @@ impl SmallMutation {
         let r = self.reference.as_slice().first()?;
         let a = self.alternative.as_slice().first()?;
 
-        Some(TiTv::from_chemical_class(
-            r.chemical_class(),
-            a.chemical_class(),
-        ))
+        TiTv::from_chemical_class(r.chemical_class(), a.chemical_class())
     }
 }
