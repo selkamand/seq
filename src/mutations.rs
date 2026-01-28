@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::{
     base::{Base, ChemClass},
-    sequences::{DnaSeq, Seq},
+    sequences::DnaSeq,
 };
 
 // Small Variant Class
@@ -13,7 +13,7 @@ pub struct SmallMutation {
     reference: DnaSeq,
     alternative: DnaSeq,
     multiallelic: bool,
-    context: DnaSeq,
+    context: Option<DnaSeq>,
 }
 
 // Implement the `fmt::Display` trait for `Point`.
@@ -32,6 +32,30 @@ impl fmt::Display for SmallMutation {
             self.class(),
             self.multiallelic
         )
+    }
+}
+
+impl SmallMutation {
+    pub fn new(
+        chromosome: String,
+        position: u64,
+        reference: DnaSeq,
+        alternative: DnaSeq,
+        multiallelic: bool,
+        context: Option<DnaSeq>,
+    ) -> Self {
+        Self {
+            chromosome,
+            position,
+            reference,
+            alternative,
+            multiallelic,
+            context,
+        }
+    }
+
+    pub fn add_context(&mut self, seq: DnaSeq) {
+        self.context = Some(seq)
     }
 }
 
@@ -79,7 +103,7 @@ pub enum TiTv {
 }
 
 impl TiTv {
-    pub fn from_chemical_bases(reference: ChemClass, alternative: ChemClass) -> TiTv {
+    pub fn from_chemical_class(reference: ChemClass, alternative: ChemClass) -> TiTv {
         match reference == alternative {
             true => TiTv::Transition,
             false => TiTv::Transversion,
@@ -103,16 +127,17 @@ impl SmallMutation {
         SmallMutationType::from_lengths(self.reflen(), self.altlen())
     }
 
-    pub fn class_titv(&self) -> Option<TiTv> {
-        match self.class() {
-            SmallMutationType::SNV => Some(TiTv::from_chemical_bases(
-                self.reference.middlebase()?.chemical_class(),
-                self.alternative.middlebase()?.chemical_class(),
-            )),
-            SmallMutationType::DOUBLET => None,
-            SmallMutationType::MNV => None,
-            SmallMutationType::INSERTION => None,
-            SmallMutationType::DELETION => None,
+    pub fn titv(&self) -> Option<TiTv> {
+        if self.class() != SmallMutationType::SNV {
+            return None;
         }
+
+        let r = self.reference.as_slice().first()?;
+        let a = self.alternative.as_slice().first()?;
+
+        Some(TiTv::from_chemical_class(
+            r.chemical_class(),
+            a.chemical_class(),
+        ))
     }
 }
