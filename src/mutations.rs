@@ -172,14 +172,14 @@ impl TiTv {
 impl<B: Base> SmallMutation<B> {
     /// Return the length of the reference allele in bases.
     ///
-    /// This is a convenience wrapper around [`DnaSeq::len`].
+    /// This is a convenience wrapper around [`Seq::len`].
     pub fn reflen(&self) -> usize {
         self.reference.len()
     }
 
     /// Return the length of the alternative allele in bases.
     ///
-    /// This is a convenience wrapper around [`DnaSeq::len`].
+    /// This is a convenience wrapper around [`Seq::len`].
     pub fn altlen(&self) -> usize {
         self.alternative.len()
     }
