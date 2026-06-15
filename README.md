@@ -2,7 +2,7 @@
 ![Header](assets/banner.png)
 
 
-`seqlib` is a small, type-safe Rust library for working with DNA and RNA sequences.
+`seqlib` is a Rust library for working with DNA and RNA sequences.
 
 It provides a **robust core representation** for biological sequences with:
 - explicit DNA / RNA alphabets
@@ -18,11 +18,11 @@ any Rust code that needs reliable nucleotide sequence handling.
 ## Design goals
 
 - **Correctness first**: invalid sequences are rejected at construction
-- **Type safety**: DNA and RNA are distinct types, not runtime flags
+- **Type safety**: DNA and RNA sequences are distinct types, not runtime flags
 - **Strict alphabets**: DNA and RNA reject invalid bases at construction  (e.g. `U` in DNA, `T` in RNA)
 - **Explicit ambiguity handling**: ambiguous IUPAC bases (S/W/N) are modeled, not ignored
-- **Ergonomic by default**: core sequence operations use copy-on-modify semantics, making them easy to compose and safe for downstream use
-- **Explicit performance opt-ins**: in-place modifying methods are provided for performance- or memory-critical workflows
+- **Ergonomic by default**: core sequence operations use copy-on-modify semantics, making them easy to compose and safe for downstream use.
+- **Explicit performance opt-ins**: in-place modifying methods are provided to maximise performance or minimise memory-footprint
 - **Small surface area**: no I/O, no parsing frameworks, no CLI
 - **Composable**: intended to be embedded in larger bioinformatics pipelines
 
@@ -30,7 +30,7 @@ any Rust code that needs reliable nucleotide sequence handling.
 
 ## Adding to your project
 
-`seqlib` is currently consumed directly from GitHub:
+Add `seqlib` library to your project:
 
 ```bash
 cargo add seqlib --git https://github.com/selkamand/seqlib
@@ -88,8 +88,8 @@ new sequences rather than mutating existing ones, making them easy to compose,
 store, and pass through downstream code without surprising side effects.
 
 For performance-critical or memory-sensitive workflows, `seqlib` also exposes
-explicit **in-place mutation** methods (e.g. `reverse_complement_in_place`,
-`subseq_in_place`). These methods are clearly named and opt-in, allowing callers
+explicit **in-place mutation** methods (e.g. `reverse_complement_in_place`). 
+These methods are clearly named and opt-in, allowing callers
 to trade ergonomics for efficiency when appropriate.
 
 ---
@@ -137,7 +137,6 @@ motif-based analyses where false positives must be avoided.
 - Infallible complement and reverse-complement operations
 - Explicit ambiguity detection
 - Allocation-aware APIs with both copy-on-modify and in-place variants
-- No external dependencies beyond the Rust standard library
 
 ---
 
