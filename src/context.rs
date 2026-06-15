@@ -50,7 +50,6 @@
 //! This separation keeps `seqlib` focused on **correct representation and safe
 //! manipulation** of biological sequences.
 
-
 use crate::{base::Base, coord::Pos, sequence::Seq};
 
 /// A reference context window fetched around a mutation.
@@ -220,7 +219,7 @@ impl<B: Base> ContextWindow<B> {
             return None;
         }
         // subseq_slice returns Result<&[B]>; convert to Option
-        self.seq.subseq_slice(start, end).ok()
+        self.seq.slice(start, end).ok()
     }
 
     /// Construct a new `ContextWindow`.
