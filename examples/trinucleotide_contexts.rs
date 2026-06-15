@@ -1,16 +1,31 @@
-use seqlib::{context, coord::Pos, mutation::SmallMutation, sequence::DnaSeq};
+use seqlib::coord::Pos;
+use seqlib::{
+    context::{self, Orientation},
+    error::Result,
+    mutation::{MutationWithContext, SmallMutation},
+};
+use seqlib::{dna, pos};
 
-fn main() {
-    let seq = DnaSeq::new("ACTGACGTA").unwrap();
+fn main() -> Result<()> {
     let mutation = SmallMutation::new(
         "chr1".to_owned(),
-        Pos::new(50usize).unwrap(),
-        DnaSeq::new("A").unwrap(),
-        DnaSeq::new("C").unwrap(),
+        pos!(2000),
+        dna!("A"),
+        dna!("C"),
         false,
         false,
     );
 
-    let context = context::ContextWindow::new();
-    DnaSeq::new("ACTGATCGATCGAGCATGCTACGGGGCCGATCGATTATCGATCAGTCA")
+    let context = context::ContextWindow::new(
+        dna!("ACTGATCGATCGAGCATGCTACGGGGCCGATCGATTATCGATCAGTCA"),
+        pos!(10),
+        pos!(5),
+        Orientation::Forward,
+    );
+
+    let mutation_with_context = MutationWithContext::new(mutation, Some(context));
+
+    println!("{mutation_with_context}");
+
+    Ok(())
 }
