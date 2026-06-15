@@ -4,6 +4,8 @@ use crate::{
     base::{Base, ChemClass, DnaBase, RnaBase},
     context::ContextWindow,
     coord::{Pos, Region},
+    error::Result,
+    mutation,
     sequence::Seq,
 };
 
@@ -216,6 +218,55 @@ impl<B: Base> SmallMutation<B> {
 
         TiTv::from_chemical_class(r.chemical_class(), a.chemical_class())
     }
+
+    /// Render a compact `chrom:pos REF>ALT` representation of the mutation.
+    ///
+    /// This is a convenience formatter intended for **human-readable output**
+    /// (e.g. logs, debugging, CLI display). It mirrors the common genomics shorthand
+    /// used in VCF-style contexts, but is **not** a stable serialization format.
+    ///
+    /// ## Format
+    ///
+    /// ```text
+    /// chromosome:position REF>ALT
+    /// ```
+    ///
+    /// Where:
+    /// - `chromosome` is the contig / reference name (e.g. `"chr1"`)
+    /// - `position` is the **1-based** start coordinate (VCF-style)
+    /// - `REF` is the reference allele sequence
+    /// - `ALT` is the alternative allele sequence
+    ///
+    /// Alleles are rendered using their sequence display implementations
+    /// (uppercase IUPAC symbols).
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use seqlib::mutation::DnaSmallMutation;
+    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::coord::Pos;
+    ///
+    /// let m = DnaSmallMutation::new(
+    ///     "chr1".to_string(),
+    ///     Pos::new(123).unwrap(),
+    ///     DnaSeq::new("A").unwrap(),
+    ///     DnaSeq::new("G").unwrap(),
+    ///     false,
+    ///     true,
+    /// );
+    ///
+    /// assert_eq!(m.chrom_pos_ref_alt(), "chr1:123 A>G");
+    /// ```
+    pub fn chrom_pos_ref_alt(&self) -> String {
+        format!(
+            "{}:{} {}>{}",
+            self.chromosome(),
+            self.position(),
+            self.reference(),
+            self.alternative()
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -361,11 +412,22 @@ impl<B: Base> MutationWithContext<B> {
     }
 
     /// Get the region of context affected by the mutation
-    pub fn mutated_region(&self) -> Option<Region> {
-        let ctx = self.context()?;
-        todo!()
+    pub fn mutated_region(&self) -> Result<Region> {
+        let ctx = match self.context() {
+            Some(ctx) => ctx,
+            None => {
+                return Err(crate::error::Error::MutationMissingContext {
+                    id: self.mutation.chrom_pos_ref_alt(),
+                });
+            }
+        };
+        let pos1 = ctx.anchor();
+        let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
+
+        Region::new(pos1, pos2)
     }
 
+    // pub fn mutate(&self) -> Seq<B> {}
     /// Visualise the mutation in context
     pub fn to_difference_string(&self) -> String {
         if !self.has_context() {
@@ -383,9 +445,15 @@ impl<B: Base> MutationWithContext<B> {
             ctx.anchor(),
             ctx.anchor().saturating_add(self.mutation().reflen()),
         );
-        // format!("Ref: ", seq.format_with_highlight_region(region));
 
-        todo!();
+        let refstring = if let Ok(region) = self.mutated_region() {
+            ctx.seq().format_with_highlight_region(Some(&region))
+        } else {
+            ctx.seq()
+                .format_with_highlight_pos(Some(self.mutation().position()))
+        };
+
+        let altstring = todo!();
     }
 }
 

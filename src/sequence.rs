@@ -90,9 +90,62 @@ impl<B: Base> Seq<B> {
         self.as_mut_slice().get_mut(idx)
     }
 
-    /// Borrow as a mutable slice, if applicable.
     pub fn as_mut_slice(&mut self) -> &mut [B] {
         &mut self.seq
+    }
+
+    /// Returns the sequence as a read-only slice of bases.
+    ///
+    /// This provides **borrowed access** to the underlying contiguous storage
+    /// without allocating or copying.
+    ///
+    /// ## What this allows
+    ///
+    /// The returned slice can be used to:
+    /// - index individual bases
+    /// - iterate efficiently over the sequence
+    /// - take subslices (e.g. for k-mer extraction)
+    /// - use standard slice methods such as `windows`, `chunks`, and `split_at`
+    ///
+    /// ## What this does *not* allow
+    ///
+    /// - mutation of the sequence
+    /// - resizing or reallocation
+    /// - violating any invariants of `Seq`
+    ///
+    /// ## Lifetime and safety
+    ///
+    /// The returned slice is valid only for the lifetime of `&self`.
+    /// Rust’s borrow checker guarantees that the sequence cannot be mutated
+    /// while the slice is in use.
+    ///
+    /// ## Performance
+    ///
+    /// This method is **zero-cost**:
+    /// - no allocation
+    /// - no copying
+    /// - compiles down to returning a pointer and a length
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::base::Base;
+    /// let seq = DnaSeq::new("ACGT").unwrap();
+    /// let bases = seq.as_slice();
+    ///
+    /// assert_eq!(bases.len(), 4);
+    /// assert_eq!(bases[0].to_char(), 'A');
+    /// ```
+    pub fn as_slice(&self) -> &[B] {
+        &self.seq
+    }
+
+    /// Returns a shared reference to the underlying vector of bases.
+    ///
+    /// This exposes the concrete backing container (`Vec<B>`).
+    pub fn as_vec(&self) -> &Vec<B> {
+        &self.seq
     }
 
     /// Returns the number of bases in the sequence.
@@ -310,8 +363,7 @@ impl<B: Base> Seq<B> {
         Pos::new(self.len()).unwrap_or_default()
     }
 
-    /// Does region span a range that exists in this sequence. If sequence is empty - by definition region can Note be
-    /// valid
+    /// Does region span a range that exists in this sequence. If sequence is empty no regions are valid
     pub fn is_region_valid(&self, region: &Region) -> bool {
         match self.is_empty() {
             true => false,
@@ -386,27 +438,21 @@ impl<B: Base> Seq<B> {
         )
     }
 
-    /// Extract a subsequence as a new, independent `Seq`.
+    /// Returns a borrowed slice of bases using Rust-style indices.
     ///
-    /// This method uses **0-based indexing** and a **half-open interval**: `[start, end)`.
-    /// That means:
-    /// - `start` is included
-    /// - `end` is excluded
+    /// This method follows standard Rust slicing semantics:
+    /// - `start` is **0-based** and **inclusive**
+    /// - `end` is **0-based** and **exclusive**
+    /// - the returned slice is a **borrowed view** into the original sequence
     ///
-    /// This is the **safe, ergonomic default** for most users: the returned subsequence
-    /// is an owned copy, so it can be stored, returned from functions, or modified
-    /// without affecting the original sequence.
-    ///
-    /// # Arguments
-    ///
-    /// * `start` - Start index (inclusive, 0-based)
-    /// * `end` - End index (exclusive, 0-based)
+    /// The returned slice:
+    /// - contains bases `start..end`
+    /// - performs **no allocation** and **no copying**
+    /// - is valid only for the lifetime of `&self`
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - `start > end`
-    /// - `end > self.len()`
+    /// Returns an error if `start > end` or if `end` is greater than the sequence length.
     ///
     /// # Examples
     ///
@@ -414,74 +460,12 @@ impl<B: Base> Seq<B> {
     /// use seqlib::sequence::DnaSeq;
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
-    /// let sub = seq.subseq(1, 4).unwrap(); // bases 1,2,3
-    /// assert_eq!(sub.to_string(), "CGT");
+    /// let view = seq.slice(1, 4).unwrap();
+    ///
+    /// // bases 1,2,3
+    /// assert_eq!(view.len(), 3);
     /// ```
-    pub fn subseq(&self, start: usize, end: usize) -> Result<Seq<B>> {
-        if start > end || end > self.len() {
-            return Err(Error::InvalidSlice {
-                start,
-                end,
-                len: self.len(),
-            });
-        }
-
-        Ok(Seq {
-            seq: self.seq[start..end].to_vec(),
-        })
-    }
-
-    pub fn subseq_in_place(&mut self, start: usize, end: usize) -> Result<()> {
-        if start > end || end > self.len() {
-            return Err(Error::InvalidSlice {
-                start,
-                end,
-                len: self.len(),
-            });
-        }
-        // // Remove everything after `end`
-        // self.seq.drain(end..);
-        // // Remove everything before `start`
-        // self.seq.drain(..start);
-        self.seq.copy_within(start..end, 0);
-        self.seq.truncate(end - start);
-        Ok(())
-    }
-
-    /// Extract a subsequence as a **borrowed view** (`&[B]`) with **no copying**.
-    ///
-    /// This method uses **0-based indexing** and a **half-open interval**: `[start, end)`.
-    ///
-    /// Compared to [`Seq::subseq`], this version:
-    /// - does **not** allocate
-    /// - does **not** copy bases
-    /// - is ideal for quickly computing statistics on many subsequences
-    ///
-    /// Because it returns a borrowed slice, the returned value is only valid while
-    /// the original `Seq` is still alive. Also, Rust will prevent you from calling
-    /// in-place mutation methods (like `reverse_in_place`) while this slice is in use.
-    ///
-    /// # Arguments
-    ///
-    /// * `start` - Start index (inclusive, 0-based)
-    /// * `end` - End index (exclusive, 0-based)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - `start > end`
-    /// - `end > self.len()`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use seqlib::sequence::DnaSeq;
-    ///
-    /// let seq = DnaSeq::new("ACGTAC").unwrap();
-    /// let sub = seq.subseq_slice(1, 4).unwrap();
-    /// assert_eq!(sub.len(), 3);
-    /// ```
-    pub fn subseq_slice(&self, start: usize, end: usize) -> Result<&[B]> {
+    pub fn slice(&self, start: usize, end: usize) -> Result<&[B]> {
         if start > end || end > self.len() {
             return Err(Error::InvalidSlice {
                 start,
@@ -493,6 +477,74 @@ impl<B: Base> Seq<B> {
         Ok(&self.seq[start..end])
     }
 
+    /// Returns a borrowed view of the subsequence defined by a [`Region`].
+    ///
+    /// This method is the biologist-facing counterpart to [`Seq::slice`].
+    /// It interprets `region` using the coordinate contract of [`Region`]
+    /// (1-based coordinates with **both ends included**) and returns a
+    /// **read-only, zero-copy** view into the sequence.
+    ///
+    /// The returned slice:
+    /// - contains exactly the bases covered by the region
+    /// - does **not** allocate or copy
+    /// - is tied to the lifetime of the original sequence
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the region falls outside the bounds of the sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use seqlib::{coord::{Pos, Region}, sequence::{BaseSliceExt, DnaSeq}};
+    ///
+    /// let seq = DnaSeq::new("ACGTAC").unwrap();
+    /// let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
+    ///
+    /// let slice = seq.subseq_slice(&region).unwrap();
+    /// assert_eq!(slice.to_string_upper(), "CGT");
+    /// ```
+    pub fn subseq_slice(&self, region: &Region) -> Result<&[B]> {
+        // Convert Region (1-based inclusive) to Rust indices (0-based, end-exclusive).
+        let start = region.start().as_0based_index();
+        let end_exclusive = region.end().as_0based_index() + 1;
+
+        self.slice(start, end_exclusive)
+    }
+
+    /// Extracts a subsequence defined by a [`Region`] as a new, independent [`Seq`].
+    ///
+    /// This is the classic “subsequence” operation for biologists:
+    /// - `region` uses the coordinate contract of [`Region`]
+    ///   (1-based coordinates with **both ends included**)
+    /// - the result is an **owned** `Seq<B>` that does not borrow from the original
+    ///
+    /// The returned subsequence:
+    /// - can be stored, returned, or mutated independently
+    /// - does not change the original sequence
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the region falls outside the bounds of the sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use seqlib::{coord::{Pos, Region}, sequence::DnaSeq};
+    ///
+    /// let seq = DnaSeq::new("ACGTAC").unwrap();
+    /// let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
+    ///
+    /// let sub = seq.subseq(&region).unwrap();
+    /// assert_eq!(sub.to_string(), "CGT");
+    /// assert_eq!(seq.to_string(), "ACGTAC"); // original unchanged
+    /// ```
+    pub fn subseq(&self, region: &Region) -> Result<Seq<B>> {
+        let slice = self.subseq_slice(region)?;
+        Ok(Seq {
+            seq: slice.to_vec(),
+        })
+    }
     // Conversions to other data types
 
     /// Returns the sequence as a `String` using uppercase IUPAC symbols.
@@ -504,53 +556,6 @@ impl<B: Base> Seq<B> {
     /// contained lowercase characters.
     pub fn to_string_upper(&self) -> String {
         self.seq.iter().map(|b| b.to_char()).collect()
-    }
-
-    /// Returns the sequence as a read-only slice of bases.
-    ///
-    /// This provides **borrowed access** to the underlying contiguous storage
-    /// without allocating or copying.
-    ///
-    /// ## What this allows
-    ///
-    /// The returned slice can be used to:
-    /// - index individual bases
-    /// - iterate efficiently over the sequence
-    /// - take subslices (e.g. for k-mer extraction)
-    /// - use standard slice methods such as `windows`, `chunks`, and `split_at`
-    ///
-    /// ## What this does *not* allow
-    ///
-    /// - mutation of the sequence
-    /// - resizing or reallocation
-    /// - violating any invariants of `Seq`
-    ///
-    /// ## Lifetime and safety
-    ///
-    /// The returned slice is valid only for the lifetime of `&self`.
-    /// Rust’s borrow checker guarantees that the sequence cannot be mutated
-    /// while the slice is in use.
-    ///
-    /// ## Performance
-    ///
-    /// This method is **zero-cost**:
-    /// - no allocation
-    /// - no copying
-    /// - compiles down to returning a pointer and a length
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use seqlib::sequence::DnaSeq;
-    /// use seqlib::base::Base;
-    /// let seq = DnaSeq::new("ACGT").unwrap();
-    /// let bases = seq.as_slice();
-    ///
-    /// assert_eq!(bases.len(), 4);
-    /// assert_eq!(bases[0].to_char(), 'A');
-    /// ```
-    pub fn as_slice(&self) -> &[B] {
-        &self.seq
     }
 
     // <- Formatters ->
@@ -585,7 +590,7 @@ impl<B: Base> Seq<B> {
 
     /// Highlight a series of bases using a region. If region end falls outside of sequence length
     /// it will be annotated with ]>EndPosition
-    pub fn format_with_highlight_region(&self, region: Option<Region>) -> String {
+    pub fn format_with_highlight_region(&self, region: Option<&Region>) -> String {
         if let Some(reg) = region {
             let (start, end) = reg.as_0based_indices();
             let mut s = self.to_string();
@@ -605,6 +610,29 @@ impl<B: Base> Seq<B> {
         }
     }
 
+    pub fn mutate(&mut self, region: Region, new: &Seq<B>) -> Result<Self> {
+        let mut cloned_seq = self.clone();
+        cloned_seq.mutate_in_place(region, new)?;
+
+        Ok(cloned_seq)
+    }
+
+    pub fn mutate_in_place(&mut self, region: Region, new: &Seq<B>) -> Result<()> {
+        if !self.is_region_valid(&region) {
+            return Err(Error::FailedMutateInvalidRegion {
+                region,
+                seqlength: self.len(),
+            });
+        }
+
+        let start = region.start().as_0based_index();
+        let end = region.end().get();
+
+        // Replace range with expected values
+        self.seq.splice(start..end, new.as_slice().iter().cloned());
+
+        Ok(())
+    }
     // <- Constructors ->
 
     /// Parses and validates a sequence from a string slice.
@@ -627,6 +655,16 @@ impl<B: Base> Seq<B> {
         }
 
         Ok(Self { seq })
+    }
+}
+
+pub trait BaseSliceExt<B: Base> {
+    fn to_string_upper(&self) -> String;
+}
+
+impl<B: Base> BaseSliceExt<B> for [B] {
+    fn to_string_upper(&self) -> String {
+        self.iter().map(|b| b.to_char()).collect()
     }
 }
 
@@ -858,49 +896,130 @@ mod tests {
     // --- Subsequence methods ---
 
     #[test]
-    fn subseq_returns_expected_owned_copy() {
+    fn slice_rust_indices_returns_expected_view() {
         let s = dna("ACGTAC");
-        let sub = s.subseq(1, 4).unwrap();
+
+        // 0-based, end-exclusive: bases 1,2,3 => C,G,T
+        let view = s.slice(1, 4).unwrap();
+        assert_eq!(view.to_string_upper(), "CGT");
+
+        // empty slice is allowed when start == end
+        let empty = s.slice(2, 2).unwrap();
+        assert_eq!(empty.len(), 0);
+
+        // full slice
+        let full = s.slice(0, s.len()).unwrap();
+        assert_eq!(full.to_string_upper(), "ACGTAC");
+    }
+
+    #[test]
+    fn slice_rust_indices_errors_on_invalid_ranges() {
+        let s = dna("ACGT");
+
+        // start > end
+        assert!(matches!(
+            s.slice(3, 2),
+            Err(Error::InvalidSlice {
+                start: 3,
+                end: 2,
+                len: 4
+            })
+        ));
+
+        // end out of bounds
+        assert!(matches!(
+            s.slice(0, 10),
+            Err(Error::InvalidSlice {
+                start: 0,
+                end: 10,
+                len: 4
+            })
+        ));
+    }
+
+    #[test]
+    fn subseq_slice_by_region_returns_expected_view_inclusive_1based() {
+        let s = dna("ACGTAC");
+
+        // Region is 1-based inclusive: 2..=4 => C,G,T
+        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let view = s.subseq_slice(&region).unwrap();
+        assert_eq!(view.to_string_upper(), "CGT");
+
+        // single base: 1..=1 => A
+        let r1 = Region::new(Pos::new(1).unwrap(), Pos::new(1).unwrap()).unwrap();
+        let one = s.subseq_slice(&r1).unwrap();
+        assert_eq!(one.to_string_upper(), "A");
+
+        // last base: 6..=6 => C
+        let rlast = Region::new(Pos::new(6).unwrap(), Pos::new(6).unwrap()).unwrap();
+        let last = s.subseq_slice(&rlast).unwrap();
+        assert_eq!(last.to_string_upper(), "C");
+    }
+
+    #[test]
+    fn subseq_by_region_returns_expected_owned_seq_and_does_not_modify_original() {
+        let s = dna("ACGTAC");
+        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+
+        let sub = s.subseq(&region).unwrap();
         assert_eq!(sub.to_string_upper(), "CGT");
-        assert_eq!(s.to_string_upper(), "ACGTAC"); // original unchanged
+
+        // original unchanged
+        assert_eq!(s.to_string_upper(), "ACGTAC");
     }
 
     #[test]
-    fn subseq_slice_returns_expected_view() {
+    fn subseq_owned_is_independent_of_original() {
         let s = dna("ACGTAC");
-        let sub = s.subseq_slice(1, 4).unwrap();
-        let as_string: String = sub.iter().map(|b| b.to_char()).collect();
-        assert_eq!(as_string, "CGT");
+        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+
+        let mut sub = s.subseq(&region).unwrap();
+        sub.rev_in_place();
+
+        // subseq changed
+        assert_eq!(sub.to_string_upper(), "TGC");
+
+        // original unchanged
+        assert_eq!(s.to_string_upper(), "ACGTAC");
     }
 
     #[test]
-    fn subseq_in_place_mutates_without_allocating_new_seq() {
-        let mut s = dna("ACGTAC");
-        s.subseq_in_place(1, 4).unwrap();
-        assert_eq!(s.to_string_upper(), "CGT");
+    fn subseq_and_subseq_slice_agree_on_content() {
+        let s = dna("ACGTAC");
+        let region = Region::new(Pos::new(2).unwrap(), Pos::new(5).unwrap()).unwrap(); // 2..=5 => CGTA
+
+        let view = s.subseq_slice(&region).unwrap();
+        let owned = s.subseq(&region).unwrap();
+
+        assert_eq!(view.to_string_upper(), owned.to_string_upper());
     }
 
     #[test]
-    fn subseq_errors_on_invalid_ranges() {
-        let s = dna("ACGT");
-        assert!(s.subseq(3, 2).is_err());
-        assert!(s.subseq(0, 10).is_err());
-        assert!(s.subseq_slice(3, 2).is_err());
-        assert!(s.subseq_slice(0, 10).is_err());
+    fn subseq_slice_errors_when_region_out_of_bounds() {
+        let s = dna("ACGTAC");
 
-        let mut t = dna("ACGT");
-        assert!(t.subseq_in_place(3, 2).is_err());
-        assert!(t.subseq_in_place(0, 10).is_err());
+        // End beyond sequence length (len=6). Region 1..=7 should fail.
+        let region = Region::new(Pos::new(1).unwrap(), Pos::new(7).unwrap()).unwrap();
+        assert!(s.subseq_slice(&region).is_err());
+        assert!(s.subseq(&region).is_err());
     }
 
-    // --- as_slice ---
-
     #[test]
-    fn as_slice_exposes_bases_read_only() {
-        let s = dna("ACGT");
-        let slice = s.as_slice();
-        assert_eq!(slice.len(), 4);
-        assert_eq!(slice[0], DnaBase::A);
-        assert_eq!(slice[3], DnaBase::T);
+    fn subseq_methods_work_for_rna_too() {
+        let s = rna("ACGUAC"); // length 6
+
+        // Region 2..=4 => C,G,U
+        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+
+        let view = s.subseq_slice(&region).unwrap();
+        assert_eq!(view.to_string_upper(), "CGU");
+
+        let owned = s.subseq(&region).unwrap();
+        assert_eq!(owned.to_string_upper(), "CGU");
+
+        // Rust slice 1..4 => C,G,U
+        let rust_view = s.slice(1, 4).unwrap();
+        assert_eq!(rust_view.to_string_upper(), "CGU");
     }
 }

@@ -1,3 +1,5 @@
+use const_panic::concat_panic;
+
 use crate::error::{Error, Result};
 use std::num::NonZeroUsize;
 
@@ -28,10 +30,25 @@ impl Pos {
     ///
     /// # Errors
     /// Returns [`Error::PositionIsZero`] if `position == 0`.
-    pub const fn new(position: usize) -> Result<Self> {
+    pub fn new(position: usize) -> Result<Self> {
         match NonZeroUsize::new(position) {
             Some(validpos) => Ok(Self(validpos)),
             None => Err(Error::PositionIsZero),
+        }
+    }
+
+    /// Create a Pos - compile time panic if it fails. Powers the pos! macro
+    pub const fn new_panic(position: usize) -> Self {
+        match NonZeroUsize::new(position) {
+            Some(validpos) => Self(validpos),
+            None => concat_panic!(
+                "Failed to create position from [",
+                position,
+                "]. Must be a usize from ",
+                NonZeroUsize::MIN,
+                "-",
+                NonZeroUsize::MAX
+            ),
         }
     }
 
@@ -187,11 +204,7 @@ pub struct Region {
 
 impl std::fmt::Display for Region {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Region: {}-{} (1-based, both end inclusive",
-            self.start, self.end
-        )
+        write!(f, "{}-{}", self.start, self.end)
     }
 }
 
@@ -267,10 +280,7 @@ impl Default for Region {
 #[macro_export]
 macro_rules! pos {
     ($lit:literal) => {{
-        const P: Pos = match Pos::new($lit) {
-            Ok(pos) => pos,
-            Err(_) => panic!("Valid positions can only be created from non-zero unsigned integers"),
-        };
+        const P: Pos = Pos::new_panic($lit);
         P
 
         // Safe because 0 is handled above.
