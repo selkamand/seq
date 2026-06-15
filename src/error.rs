@@ -1,4 +1,7 @@
-use crate::{base::Alphabet, coord::Pos};
+use crate::{
+    base::Alphabet,
+    coord::{Pos, Region},
+};
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -41,6 +44,12 @@ pub enum Error {
 
     #[error("End position of range: [end] cannot be less than start position [start]")]
     RangeEndTooSmall { start: Pos, end: Pos },
+
+    #[error("Mutation [{id}] does not have a sequence context")]
+    MutationMissingContext { id: String },
+
+    #[error("Can NOT mutate region: {region}. Spans beyond sequence ({seqlength} bases long")]
+    FailedMutateInvalidRegion { region: Region, seqlength: usize },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
