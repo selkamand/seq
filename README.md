@@ -5,9 +5,8 @@
 `seqlib` is a Rust library for working with DNA and RNA sequences.
 
 It provides a **robust core representation** for biological sequences with:
-- explicit DNA / RNA alphabets
-- full IUPAC ambiguity support
-- compiler-enforced correctness for operations like complementation
+- Explicit DNA / RNA alphabets
+- Dedicated types for sequences with and without IUPAC ambiguity support
 
 `seqlib` is designed as a **library dependency**, not a command-line tool.  
 It is developed to support the `scarscape` project, but is usable on its own for
@@ -20,7 +19,7 @@ any Rust code that needs reliable nucleotide sequence handling.
 - **Correctness first**: invalid sequences are rejected at construction
 - **Type safety**: DNA and RNA sequences are distinct types, not runtime flags
 - **Strict alphabets**: DNA and RNA reject invalid bases at construction  (e.g. `U` in DNA, `T` in RNA)
-- **Explicit ambiguity handling**: ambiguous IUPAC bases (S/W/N) are modeled, not ignored
+- **Explicit ambiguity handling**: ambiguous IUPAC bases (S/W/N) are modeled with their own types (e.g. `IupacDnaBase` vs `DnaBase`).
 - **Ergonomic by default**: core sequence operations use copy-on-modify semantics, making them easy to compose and safe for downstream use.
 - **Explicit performance opt-ins**: in-place modifying methods are provided to maximise performance or minimise memory-footprint
 - **Small surface area**: no I/O, no parsing frameworks, no CLI
@@ -42,8 +41,10 @@ cargo add seqlib --git https://github.com/selkamand/seqlib
 
 Most users should work with the concrete sequence types:
 
-- `DnaSeq` — validated DNA sequences (`A, C, G, T` + IUPAC ambiguity codes)
-- `RnaSeq` — validated RNA sequences (`A, C, G, U` + IUPAC ambiguity codes)
+- `DnaSeq` — validated DNA sequences (`A, C, G, T`)
+- `RnaSeq` — validated RNA sequences (`A, C, G, U`)
+- `IupacDnaSeq` — validated DNA sequences (`A, C, G, T` + IUPAC ambiguity codes)
+- `IupacRnaSeq` — validated RNA sequences (`A, C, G, U` + IUPAC ambiguity codes)
 
 These are type aliases over a generic `Seq<B>` implementation and are the
 **recommended entry points** for sequence creation and manipulation.
@@ -60,7 +61,7 @@ directly.
 use seqlib::sequences::DnaSeq;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let seq = DnaSeq::new("ACGTN")?;
+    let seq = DnaSeq::new("ACGT")?;
 
     println!("Sequence: {}", seq);
     println!("Length: {}", seq.len());
@@ -80,10 +81,10 @@ let bad = DnaSeq::new("ACGTX"); // returns Err(...)
 
 ## Copy-on-modify vs in-place mutation
 
-`seqlib` is designed to be **ergonomic and safe by default**.
+`seqlib` is designed to be **ergonomic by default**.
 
-All standard sequence operations—such as reverse complementation, subsequence
-extraction, and reversal—use **copy-on-modify semantics**. These methods return
+All standard sequence operations such as reverse complementation, subsequence
+extraction, and reversal use **copy-on-modify semantics** by default. These methods return
 new sequences rather than mutating existing ones, making them easy to compose,
 store, and pass through downstream code without surprising side effects.
 
@@ -128,15 +129,6 @@ assert!(!DnaSeq::new("AAA").unwrap().is_palindromic());
 
 This conservative definition is intentional and designed for statistical and
 motif-based analyses where false positives must be avoided.
-
----
-
-## Features
-
-- DNA and RNA alphabets with full IUPAC ambiguity support
-- Infallible complement and reverse-complement operations
-- Explicit ambiguity detection
-- Allocation-aware APIs with both copy-on-modify and in-place variants
 
 ---
 
