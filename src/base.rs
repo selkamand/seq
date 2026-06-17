@@ -137,7 +137,7 @@ pub enum ChemClass {
 /// every possible symbol (no missing cases).
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum DnaBase {
+pub enum IupacDnaBase {
     A,
     C,
     G,
@@ -169,7 +169,7 @@ pub enum DnaBase {
 /// RNA nucleotide symbols including IUPAC ambiguity codes.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum RnaBase {
+pub enum IupacRnaBase {
     A,
     C,
     G,
@@ -188,7 +188,27 @@ pub enum RnaBase {
     V,
 }
 
-impl Base for DnaBase {
+/// DNA nucleotide symbols not including IUPAC ambiguity codes.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum DnaBase {
+    A,
+    C,
+    G,
+    T,
+}
+
+/// RNA nucleotide symbols not including IUPAC ambiguity codes.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum RnaBase {
+    A,
+    C,
+    G,
+    U,
+}
+
+impl Base for IupacDnaBase {
     const ALPHABET: Alphabet = Alphabet::DNA;
 
     fn complement(self) -> Self {
@@ -227,21 +247,130 @@ impl Base for DnaBase {
 
     fn to_ascii(self) -> u8 {
         match self {
+            IupacDnaBase::A => b'A',
+            IupacDnaBase::C => b'C',
+            IupacDnaBase::G => b'G',
+            IupacDnaBase::T => b'T',
+            IupacDnaBase::N => b'N',
+            IupacDnaBase::R => b'R',
+            IupacDnaBase::Y => b'Y',
+            IupacDnaBase::S => b'S',
+            IupacDnaBase::W => b'W',
+            IupacDnaBase::K => b'K',
+            IupacDnaBase::M => b'M',
+            IupacDnaBase::B => b'B',
+            IupacDnaBase::D => b'D',
+            IupacDnaBase::H => b'H',
+            IupacDnaBase::V => b'V',
+        }
+    }
+
+    fn to_ascii_lower(self) -> u8 {
+        match self {
+            IupacDnaBase::A => b'a',
+            IupacDnaBase::C => b'c',
+            IupacDnaBase::G => b'g',
+            IupacDnaBase::T => b't',
+            IupacDnaBase::N => b'n',
+            IupacDnaBase::R => b'r',
+            IupacDnaBase::Y => b'y',
+            IupacDnaBase::S => b's',
+            IupacDnaBase::W => b'w',
+            IupacDnaBase::K => b'k',
+            IupacDnaBase::M => b'm',
+            IupacDnaBase::B => b'b',
+            IupacDnaBase::D => b'd',
+            IupacDnaBase::H => b'h',
+            IupacDnaBase::V => b'v',
+        }
+    }
+
+    fn is_ambiguous(self) -> bool {
+        !matches!(
+            self,
+            IupacDnaBase::A | IupacDnaBase::C | IupacDnaBase::G | IupacDnaBase::T
+        )
+    }
+
+    fn chemical_class(self) -> ChemClass {
+        match self {
+            IupacDnaBase::A => ChemClass::Purine,
+            IupacDnaBase::G => ChemClass::Purine,
+            IupacDnaBase::C => ChemClass::Pyrimidine,
+            IupacDnaBase::T => ChemClass::Pyrimidine,
+            IupacDnaBase::N => ChemClass::Ambiguous,
+            IupacDnaBase::R => ChemClass::Purine,
+            IupacDnaBase::Y => ChemClass::Pyrimidine,
+            IupacDnaBase::S => ChemClass::Ambiguous,
+            IupacDnaBase::W => ChemClass::Ambiguous,
+            IupacDnaBase::K => ChemClass::Ambiguous,
+            IupacDnaBase::M => ChemClass::Ambiguous,
+            IupacDnaBase::B => ChemClass::Ambiguous,
+            IupacDnaBase::D => ChemClass::Ambiguous,
+            IupacDnaBase::H => ChemClass::Ambiguous,
+            IupacDnaBase::V => ChemClass::Ambiguous,
+        }
+    }
+}
+
+impl fmt::Display for IupacDnaBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use core::fmt::Write;
+        f.write_char((*self).to_char())
+    }
+}
+impl fmt::Display for DnaBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use core::fmt::Write;
+        f.write_char((*self).to_char())
+    }
+}
+impl fmt::Display for RnaBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use core::fmt::Write;
+        f.write_char((*self).to_char())
+    }
+}
+
+impl fmt::Display for IupacRnaBase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use core::fmt::Write;
+        f.write_char((*self).to_char())
+    }
+}
+
+impl Base for DnaBase {
+    const ALPHABET: Alphabet = Alphabet::DNA;
+
+    fn complement(self) -> Self {
+        match self {
+            Self::A => Self::T,
+            Self::T => Self::A,
+            Self::C => Self::G,
+            Self::G => Self::C,
+        }
+    }
+
+    fn try_from_ascii(b: u8) -> Result<Self> {
+        if !b.is_ascii() {
+            return Err(Error::InvalidByte {
+                alphabet: Self::ALPHABET,
+                invalid: b,
+            });
+        }
+
+        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+            alphabet: Self::ALPHABET,
+            invalid: b as char,
+        })
+    }
+
+    fn to_ascii(self) -> u8 {
+        match self {
             DnaBase::A => b'A',
             DnaBase::C => b'C',
             DnaBase::G => b'G',
             DnaBase::T => b'T',
-            DnaBase::N => b'N',
-            DnaBase::R => b'R',
-            DnaBase::Y => b'Y',
-            DnaBase::S => b'S',
-            DnaBase::W => b'W',
-            DnaBase::K => b'K',
-            DnaBase::M => b'M',
-            DnaBase::B => b'B',
-            DnaBase::D => b'D',
-            DnaBase::H => b'H',
-            DnaBase::V => b'V',
         }
     }
 
@@ -251,22 +380,11 @@ impl Base for DnaBase {
             DnaBase::C => b'c',
             DnaBase::G => b'g',
             DnaBase::T => b't',
-            DnaBase::N => b'n',
-            DnaBase::R => b'r',
-            DnaBase::Y => b'y',
-            DnaBase::S => b's',
-            DnaBase::W => b'w',
-            DnaBase::K => b'k',
-            DnaBase::M => b'm',
-            DnaBase::B => b'b',
-            DnaBase::D => b'd',
-            DnaBase::H => b'h',
-            DnaBase::V => b'v',
         }
     }
 
     fn is_ambiguous(self) -> bool {
-        !matches!(self, DnaBase::A | DnaBase::C | DnaBase::G | DnaBase::T)
+        false
     }
 
     fn chemical_class(self) -> ChemClass {
@@ -275,22 +393,11 @@ impl Base for DnaBase {
             DnaBase::G => ChemClass::Purine,
             DnaBase::C => ChemClass::Pyrimidine,
             DnaBase::T => ChemClass::Pyrimidine,
-            DnaBase::N => ChemClass::Ambiguous,
-            DnaBase::R => ChemClass::Purine,
-            DnaBase::Y => ChemClass::Pyrimidine,
-            DnaBase::S => ChemClass::Ambiguous,
-            DnaBase::W => ChemClass::Ambiguous,
-            DnaBase::K => ChemClass::Ambiguous,
-            DnaBase::M => ChemClass::Ambiguous,
-            DnaBase::B => ChemClass::Ambiguous,
-            DnaBase::D => ChemClass::Ambiguous,
-            DnaBase::H => ChemClass::Ambiguous,
-            DnaBase::V => ChemClass::Ambiguous,
         }
     }
 }
 
-impl DnaBase {
+impl IupacDnaBase {
     /// Parse a single ASCII byte into a DNA base (A,C,G,T plus IUPAC codes),
     /// case-insensitive.
     ///
@@ -318,13 +425,69 @@ impl DnaBase {
         }
     }
 }
-impl fmt::Display for DnaBase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use core::fmt::Write;
-        f.write_char((*self).to_char())
+
+impl IupacRnaBase {
+    /// Parse a single ASCII byte into an [`RnaBase`] in a `const` context.
+    ///
+    /// This is a const-friendly equivalent of [`Base::try_from_ascii`], intended
+    /// for compile-time validation (e.g. in macros).
+    ///
+    /// - Accepts both uppercase and lowercase ASCII letters
+    /// - Returns `None` for invalid characters
+    /// - Does not panic
+    pub const fn from_ascii_const(b: u8) -> Option<Self> {
+        match b {
+            b'A' | b'a' => Some(IupacRnaBase::A),
+            b'C' | b'c' => Some(IupacRnaBase::C),
+            b'G' | b'g' => Some(IupacRnaBase::G),
+            b'U' | b'u' => Some(IupacRnaBase::U),
+            b'N' | b'n' => Some(IupacRnaBase::N),
+            b'R' | b'r' => Some(IupacRnaBase::R),
+            b'Y' | b'y' => Some(IupacRnaBase::Y),
+            b'S' | b's' => Some(IupacRnaBase::S),
+            b'W' | b'w' => Some(IupacRnaBase::W),
+            b'K' | b'k' => Some(IupacRnaBase::K),
+            b'M' | b'm' => Some(IupacRnaBase::M),
+            b'B' | b'b' => Some(IupacRnaBase::B),
+            b'D' | b'd' => Some(IupacRnaBase::D),
+            b'H' | b'h' => Some(IupacRnaBase::H),
+            b'V' | b'v' => Some(IupacRnaBase::V),
+            _ => None,
+        }
     }
 }
 
+impl DnaBase {
+    /// Parse a single ASCII byte into a DNA base (A,C,G,T plus IUPAC codes),
+    /// case-insensitive.
+    ///
+    /// Returns `None` if `b` is not a valid DNA symbol.
+    pub const fn from_ascii_const(b: u8) -> Option<Self> {
+        match b {
+            b'A' | b'a' => Some(Self::A),
+            b'C' | b'c' => Some(Self::C),
+            b'G' | b'g' => Some(Self::G),
+            b'T' | b't' => Some(Self::T),
+            _ => None,
+        }
+    }
+}
+
+impl RnaBase {
+    /// Parse a single ASCII byte into a DNA base (A,C,G,T plus IUPAC codes),
+    /// case-insensitive.
+    ///
+    /// Returns `None` if `b` is not a valid DNA symbol.
+    pub const fn from_ascii_const(b: u8) -> Option<Self> {
+        match b {
+            b'A' | b'a' => Some(Self::A),
+            b'C' | b'c' => Some(Self::C),
+            b'G' | b'g' => Some(Self::G),
+            b'U' | b'u' => Some(Self::U),
+            _ => None,
+        }
+    }
+}
 impl Base for RnaBase {
     const ALPHABET: Alphabet = Alphabet::RNA;
 
@@ -342,36 +505,71 @@ impl Base for RnaBase {
         })
     }
 
-    // fn try_from_ascii(b: u8) -> Result<Self> {
-    //     if !b.is_ascii() {
-    //         return Err(Error::InvalidByte {
-    //             alphabet: Alphabet::RNA,
-    //             invalid: b,
-    //         });
-    //     }
-    //
-    //     match b.to_ascii_uppercase() {
-    //         b'A' => Ok(RnaBase::A),
-    //         b'C' => Ok(RnaBase::C),
-    //         b'G' => Ok(RnaBase::G),
-    //         b'U' => Ok(RnaBase::U),
-    //         b'N' => Ok(RnaBase::N),
-    //         b'R' => Ok(RnaBase::R),
-    //         b'Y' => Ok(RnaBase::Y),
-    //         b'S' => Ok(RnaBase::S),
-    //         b'W' => Ok(RnaBase::W),
-    //         b'K' => Ok(RnaBase::K),
-    //         b'M' => Ok(RnaBase::M),
-    //         b'B' => Ok(RnaBase::B),
-    //         b'D' => Ok(RnaBase::D),
-    //         b'H' => Ok(RnaBase::H),
-    //         b'V' => Ok(RnaBase::V),
-    //         _ => Err(Error::InvalidCharacter {
-    //             alphabet: Alphabet::RNA,
-    //             invalid: b as char,
-    //         }),
-    //     }
-    // }
+    fn complement(self) -> Self {
+        match self {
+            Self::A => Self::U,
+            Self::U => Self::A,
+            Self::C => Self::G,
+            Self::G => Self::C,
+        }
+    }
+
+    fn to_ascii(self) -> u8 {
+        match self {
+            RnaBase::A => b'A',
+            RnaBase::C => b'C',
+            RnaBase::G => b'G',
+            RnaBase::U => b'U',
+        }
+    }
+
+    fn to_ascii_lower(self) -> u8 {
+        match self {
+            RnaBase::A => b'a',
+            RnaBase::C => b'c',
+            RnaBase::G => b'g',
+            RnaBase::U => b'u',
+        }
+    }
+
+    fn is_ambiguous(self) -> bool {
+        false
+    }
+
+    fn chemical_class(self) -> ChemClass {
+        match self {
+            RnaBase::A => ChemClass::Purine,
+            RnaBase::G => ChemClass::Purine,
+            RnaBase::C => ChemClass::Pyrimidine,
+            RnaBase::U => ChemClass::Pyrimidine,
+        }
+    }
+
+    fn to_char(self) -> char {
+        self.to_ascii() as char
+    }
+
+    fn is_unambiguous(self) -> bool {
+        !self.is_ambiguous()
+    }
+}
+
+impl Base for IupacRnaBase {
+    const ALPHABET: Alphabet = Alphabet::RNA;
+
+    fn try_from_ascii(b: u8) -> Result<Self> {
+        if !b.is_ascii() {
+            return Err(Error::InvalidByte {
+                alphabet: Self::ALPHABET,
+                invalid: b,
+            });
+        }
+
+        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+            alphabet: Self::ALPHABET,
+            invalid: b as char,
+        })
+    }
 
     fn complement(self) -> Self {
         match self {
@@ -395,104 +593,69 @@ impl Base for RnaBase {
 
     fn to_ascii(self) -> u8 {
         match self {
-            RnaBase::A => b'A',
-            RnaBase::C => b'C',
-            RnaBase::G => b'G',
-            RnaBase::U => b'U',
-            RnaBase::N => b'N',
-            RnaBase::R => b'R',
-            RnaBase::Y => b'Y',
-            RnaBase::S => b'S',
-            RnaBase::W => b'W',
-            RnaBase::K => b'K',
-            RnaBase::M => b'M',
-            RnaBase::B => b'B',
-            RnaBase::D => b'D',
-            RnaBase::H => b'H',
-            RnaBase::V => b'V',
+            IupacRnaBase::A => b'A',
+            IupacRnaBase::C => b'C',
+            IupacRnaBase::G => b'G',
+            IupacRnaBase::U => b'U',
+            IupacRnaBase::N => b'N',
+            IupacRnaBase::R => b'R',
+            IupacRnaBase::Y => b'Y',
+            IupacRnaBase::S => b'S',
+            IupacRnaBase::W => b'W',
+            IupacRnaBase::K => b'K',
+            IupacRnaBase::M => b'M',
+            IupacRnaBase::B => b'B',
+            IupacRnaBase::D => b'D',
+            IupacRnaBase::H => b'H',
+            IupacRnaBase::V => b'V',
         }
     }
 
     fn to_ascii_lower(self) -> u8 {
         match self {
-            RnaBase::A => b'a',
-            RnaBase::C => b'c',
-            RnaBase::G => b'g',
-            RnaBase::U => b'u',
-            RnaBase::N => b'n',
-            RnaBase::R => b'r',
-            RnaBase::Y => b'y',
-            RnaBase::S => b's',
-            RnaBase::W => b'w',
-            RnaBase::K => b'k',
-            RnaBase::M => b'm',
-            RnaBase::B => b'b',
-            RnaBase::D => b'd',
-            RnaBase::H => b'h',
-            RnaBase::V => b'v',
+            IupacRnaBase::A => b'a',
+            IupacRnaBase::C => b'c',
+            IupacRnaBase::G => b'g',
+            IupacRnaBase::U => b'u',
+            IupacRnaBase::N => b'n',
+            IupacRnaBase::R => b'r',
+            IupacRnaBase::Y => b'y',
+            IupacRnaBase::S => b's',
+            IupacRnaBase::W => b'w',
+            IupacRnaBase::K => b'k',
+            IupacRnaBase::M => b'm',
+            IupacRnaBase::B => b'b',
+            IupacRnaBase::D => b'd',
+            IupacRnaBase::H => b'h',
+            IupacRnaBase::V => b'v',
         }
     }
 
     fn is_ambiguous(self) -> bool {
-        !matches!(self, RnaBase::A | RnaBase::C | RnaBase::G | RnaBase::U)
+        !matches!(
+            self,
+            IupacRnaBase::A | IupacRnaBase::C | IupacRnaBase::G | IupacRnaBase::U
+        )
     }
 
     fn chemical_class(self) -> ChemClass {
         match self {
-            RnaBase::A => ChemClass::Purine,
-            RnaBase::G => ChemClass::Purine,
-            RnaBase::C => ChemClass::Pyrimidine,
-            RnaBase::U => ChemClass::Pyrimidine,
-            RnaBase::N => ChemClass::Ambiguous,
-            RnaBase::R => ChemClass::Purine,
-            RnaBase::Y => ChemClass::Pyrimidine,
-            RnaBase::S => ChemClass::Ambiguous,
-            RnaBase::W => ChemClass::Ambiguous,
-            RnaBase::K => ChemClass::Ambiguous,
-            RnaBase::M => ChemClass::Ambiguous,
-            RnaBase::B => ChemClass::Ambiguous,
-            RnaBase::D => ChemClass::Ambiguous,
-            RnaBase::H => ChemClass::Ambiguous,
-            RnaBase::V => ChemClass::Ambiguous,
+            IupacRnaBase::A => ChemClass::Purine,
+            IupacRnaBase::G => ChemClass::Purine,
+            IupacRnaBase::C => ChemClass::Pyrimidine,
+            IupacRnaBase::U => ChemClass::Pyrimidine,
+            IupacRnaBase::N => ChemClass::Ambiguous,
+            IupacRnaBase::R => ChemClass::Purine,
+            IupacRnaBase::Y => ChemClass::Pyrimidine,
+            IupacRnaBase::S => ChemClass::Ambiguous,
+            IupacRnaBase::W => ChemClass::Ambiguous,
+            IupacRnaBase::K => ChemClass::Ambiguous,
+            IupacRnaBase::M => ChemClass::Ambiguous,
+            IupacRnaBase::B => ChemClass::Ambiguous,
+            IupacRnaBase::D => ChemClass::Ambiguous,
+            IupacRnaBase::H => ChemClass::Ambiguous,
+            IupacRnaBase::V => ChemClass::Ambiguous,
         }
-    }
-}
-
-impl RnaBase {
-    /// Parse a single ASCII byte into an [`RnaBase`] in a `const` context.
-    ///
-    /// This is a const-friendly equivalent of [`Base::try_from_ascii`], intended
-    /// for compile-time validation (e.g. in macros).
-    ///
-    /// - Accepts both uppercase and lowercase ASCII letters
-    /// - Returns `None` for invalid characters
-    /// - Does not panic
-    pub const fn from_ascii_const(b: u8) -> Option<Self> {
-        match b {
-            b'A' | b'a' => Some(RnaBase::A),
-            b'C' | b'c' => Some(RnaBase::C),
-            b'G' | b'g' => Some(RnaBase::G),
-            b'U' | b'u' => Some(RnaBase::U),
-            b'N' | b'n' => Some(RnaBase::N),
-            b'R' | b'r' => Some(RnaBase::R),
-            b'Y' | b'y' => Some(RnaBase::Y),
-            b'S' | b's' => Some(RnaBase::S),
-            b'W' | b'w' => Some(RnaBase::W),
-            b'K' | b'k' => Some(RnaBase::K),
-            b'M' | b'm' => Some(RnaBase::M),
-            b'B' | b'b' => Some(RnaBase::B),
-            b'D' | b'd' => Some(RnaBase::D),
-            b'H' | b'h' => Some(RnaBase::H),
-            b'V' | b'v' => Some(RnaBase::V),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for RnaBase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use core::fmt::Write;
-        f.write_char((*self).to_char())
     }
 }
 
@@ -504,7 +667,7 @@ pub const fn assert_valid_dna_literal(s: &str) {
     let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        if crate::base::DnaBase::from_ascii_const(bytes[i]).is_none() {
+        if crate::base::IupacDnaBase::from_ascii_const(bytes[i]).is_none() {
             // Note: This message is intentionally simple so it works in const contexts.
             // (You can refine it later if your MSRV supports richer const panics.)
             panic!("invalid DNA base in literal");
@@ -537,27 +700,39 @@ mod tests {
 
     #[test]
     fn dna_try_from_ascii_accepts_case_insensitive() {
-        assert_eq!(DnaBase::try_from_ascii(b'a').unwrap(), DnaBase::A);
-        assert_eq!(DnaBase::try_from_ascii(b'A').unwrap(), DnaBase::A);
-        assert_eq!(DnaBase::try_from_ascii(b't').unwrap(), DnaBase::T);
+        assert_eq!(IupacDnaBase::try_from_ascii(b'a').unwrap(), IupacDnaBase::A);
+        assert_eq!(IupacDnaBase::try_from_ascii(b'A').unwrap(), IupacDnaBase::A);
+        assert_eq!(IupacDnaBase::try_from_ascii(b't').unwrap(), IupacDnaBase::T);
     }
 
     #[test]
     fn rna_try_from_ascii_accepts_case_insensitive() {
-        assert_eq!(RnaBase::try_from_ascii(b'u').unwrap(), RnaBase::U);
-        assert_eq!(RnaBase::try_from_ascii(b'U').unwrap(), RnaBase::U);
+        assert_eq!(IupacRnaBase::try_from_ascii(b'u').unwrap(), IupacRnaBase::U);
+        assert_eq!(IupacRnaBase::try_from_ascii(b'U').unwrap(), IupacRnaBase::U);
     }
 
     #[test]
     fn complement_is_involutive_for_some_representative_bases() {
         // "Involutive" means comp(comp(x)) == x.
         // We only test a few representative bases to keep this minimal.
-        let reps_dna = [DnaBase::A, DnaBase::C, DnaBase::R, DnaBase::B, DnaBase::N];
+        let reps_dna = [
+            IupacDnaBase::A,
+            IupacDnaBase::C,
+            IupacDnaBase::R,
+            IupacDnaBase::B,
+            IupacDnaBase::N,
+        ];
         for b in reps_dna {
             assert_eq!(b.complement().complement(), b);
         }
 
-        let reps_rna = [RnaBase::A, RnaBase::C, RnaBase::R, RnaBase::B, RnaBase::N];
+        let reps_rna = [
+            IupacRnaBase::A,
+            IupacRnaBase::C,
+            IupacRnaBase::R,
+            IupacRnaBase::B,
+            IupacRnaBase::N,
+        ];
         for b in reps_rna {
             assert_eq!(b.complement().complement(), b);
         }
@@ -566,22 +741,22 @@ mod tests {
     #[test]
     fn ascii_rendering_is_consistent() {
         // Upper then lower should match ASCII casing expectations.
-        let b = DnaBase::G;
+        let b = IupacDnaBase::G;
         assert_eq!(b.to_ascii(), b'G');
         assert_eq!(b.to_ascii_lower(), b'g');
 
-        let r = RnaBase::U;
+        let r = IupacRnaBase::U;
         assert_eq!(r.to_ascii(), b'U');
         assert_eq!(r.to_ascii_lower(), b'u');
     }
 
     #[test]
     fn ambiguity_flag_matches_expectations() {
-        assert!(!DnaBase::A.is_ambiguous());
-        assert!(DnaBase::N.is_ambiguous());
-        assert!(DnaBase::R.is_ambiguous());
+        assert!(!IupacDnaBase::A.is_ambiguous());
+        assert!(IupacDnaBase::N.is_ambiguous());
+        assert!(IupacDnaBase::R.is_ambiguous());
 
-        assert!(!RnaBase::U.is_ambiguous());
-        assert!(RnaBase::N.is_ambiguous());
+        assert!(!IupacRnaBase::U.is_ambiguous());
+        assert!(IupacRnaBase::N.is_ambiguous());
     }
 }

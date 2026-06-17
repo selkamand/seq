@@ -1,16 +1,15 @@
 use core::fmt;
 
 use crate::{
-    base::{Base, ChemClass, DnaBase, RnaBase},
+    base::{Base, ChemClass, IupacDnaBase, IupacRnaBase},
     context::ContextWindow,
     coord::{Pos, Region},
     error::Result,
-    mutation,
     sequence::Seq,
 };
 
-pub type DnaSmallMutation = SmallMutation<DnaBase>;
-pub type RnaSmallMutation = SmallMutation<RnaBase>;
+pub type DnaSmallMutation = SmallMutation<IupacDnaBase>;
+pub type RnaSmallMutation = SmallMutation<IupacRnaBase>;
 
 /// A small mutation (SNV/MNV/indel) over a specific nucleotide alphabet `B`.
 ///
@@ -460,17 +459,17 @@ impl<B: Base> MutationWithContext<B> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::{ChemClass, DnaBase, RnaBase};
+    use crate::base::{ChemClass, IupacDnaBase, IupacRnaBase};
     use crate::sequence::Seq;
 
     // --- Helpers ---
 
-    fn dna(s: &str) -> Seq<DnaBase> {
-        Seq::<DnaBase>::new(s).unwrap()
+    fn dna(s: &str) -> Seq<IupacDnaBase> {
+        Seq::<IupacDnaBase>::new(s).unwrap()
     }
 
-    fn rna(s: &str) -> Seq<RnaBase> {
-        Seq::<RnaBase>::new(s).unwrap()
+    fn rna(s: &str) -> Seq<IupacRnaBase> {
+        Seq::<IupacRnaBase>::new(s).unwrap()
     }
 
     fn dna_mut(ref_allele: &str, alt_allele: &str) -> DnaSmallMutation {

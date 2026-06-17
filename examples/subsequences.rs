@@ -1,12 +1,12 @@
 use seqlib::{
     coord::{Pos, Region},
     pos,
-    sequence::{BaseSliceExt, DnaSeq},
+    sequence::{BaseSliceExt, IupacDnaSeq},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Define a sequence
-    let seq = DnaSeq::new("ACGTAC")?;
+    let seq = IupacDnaSeq::new("ACGTAC")?;
     println!("{seq} <- Sequence (original)");
 
     // Define a Region (1 based start & end, both-end inclusive)
@@ -34,4 +34,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

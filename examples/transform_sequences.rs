@@ -1,7 +1,7 @@
-use seqlib::sequence::DnaSeq;
+use seqlib::sequence::IupacDnaSeq;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let original = DnaSeq::new("ACGT")?;
+    let original = IupacDnaSeq::new("ACGT")?;
 
     // Copy-on-modify (default)
     let rc = original.reverse_complement();

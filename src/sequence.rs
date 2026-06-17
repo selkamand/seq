@@ -1,4 +1,4 @@
-use crate::base::{Alphabet, Base, ChemClass, DnaBase, RnaBase};
+use crate::base::{Alphabet, Base, ChemClass, IupacDnaBase, IupacRnaBase};
 use crate::coord::{Pos, Region};
 use crate::error::{Error, Result};
 use core::fmt;
@@ -30,13 +30,13 @@ impl<B: Base> fmt::Display for Seq<B> {
     }
 }
 
-/// A DNA sequence (`Seq<DnaBase>`).
+/// A DNA sequence (`Seq<IupacDnaBase>`).
 ///
-/// `DnaSeq` is the primary and recommended type for working with DNA sequences.
+/// `IupacDnaSeq` is a flexible type for working with DNA sequences.
 /// It represents a validated sequence of DNA bases, including IUPAC ambiguity codes,
 /// backed by a compact in-memory representation.
 ///
-/// Most users of this crate should prefer `DnaSeq` over the generic `Seq<B>` type
+/// Most users of this crate should prefer `IupacDnaSeq` over the generic `Seq<B>` type
 /// unless they are defining new alphabets or writing generic sequence algorithms.
 ///
 /// # Examples
@@ -44,7 +44,7 @@ impl<B: Base> fmt::Display for Seq<B> {
 /// ```rust
 /// use seqlib::sequence::DnaSeq;
 ///
-/// let seq = DnaSeq::new("ACGTN").unwrap();
+/// let seq = IupacDnaSeq::new("ACGTN").unwrap();
 /// println!("{}", seq);
 /// ```
 ///
@@ -52,15 +52,15 @@ impl<B: Base> fmt::Display for Seq<B> {
 /// ```text
 /// type DnaSeq = Seq<DnaBase>
 /// ```
-pub type DnaSeq = Seq<DnaBase>;
+pub type IupacDnaSeq = Seq<IupacDnaBase>;
 
 /// An RNA sequence (`Seq<RnaBase>`).
 ///
-/// `RnaSeq` is the primary and recommended type for working with RNA sequences.
+/// `IupacRnaSeq` is a flexible type for working with RNA sequences.
 /// It represents a validated sequence of RNA bases, including IUPAC ambiguity codes,
 /// using `U` instead of `T`.
 ///
-/// As with [`DnaSeq`], most users should prefer this alias rather than constructing
+/// As with [`IupacDnaSeq`], most users should prefer this alias rather than constructing
 /// a generic `Seq<B>` directly.
 ///
 /// # Examples
@@ -68,7 +68,7 @@ pub type DnaSeq = Seq<DnaBase>;
 /// ```rust
 /// use seqlib::sequence::RnaSeq;
 ///
-/// let seq = RnaSeq::new("ACGUN").unwrap();
+/// let seq = IupacRnaSeq::new("ACGUN").unwrap();
 /// println!("{}", seq);
 /// ```
 ///
@@ -76,7 +76,7 @@ pub type DnaSeq = Seq<DnaBase>;
 /// ```text
 /// type RnaSeq = Seq<RnaBase>
 /// ```
-pub type RnaSeq = Seq<RnaBase>;
+pub type IupacRnaSeq = Seq<IupacRnaBase>;
 
 // Other functions we can run on Seq
 impl<B: Base> Seq<B> {
@@ -675,7 +675,7 @@ pub const fn validate_dna_literal(s: &str) {
     while i < bytes.len() {
         let b: u8 = bytes[i];
 
-        if DnaBase::from_ascii_const(b).is_none() {
+        if IupacDnaBase::from_ascii_const(b).is_none() {
             // Render printable ASCII, otherwise show a placeholder.
             let shown: char = if b >= b' ' && b <= b'~' {
                 b as char
@@ -716,12 +716,12 @@ macro_rules! dna {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::DnaBase;
+    use crate::base::IupacDnaBase;
 
     // --- Helpers ---
 
-    fn dna(s: &str) -> DnaSeq {
-        DnaSeq::new(s).unwrap()
+    fn dna(s: &str) -> IupacDnaSeq {
+        IupacDnaSeq::new(s).unwrap()
     }
 
     fn rna(s: &str) -> RnaSeq {
@@ -732,13 +732,13 @@ mod tests {
 
     #[test]
     fn new_rejects_invalid_characters_dna() {
-        assert!(DnaSeq::new("ACGTX").is_err());
+        assert!(IupacDnaSeq::new("ACGTX").is_err());
     }
 
     #[test]
     fn new_rejects_u_in_dna_strict() {
         // Strict DNA: U is not allowed
-        assert!(DnaSeq::new("ACGU").is_err());
+        assert!(IupacDnaSeq::new("ACGU").is_err());
     }
 
     #[test]
@@ -785,7 +785,7 @@ mod tests {
     #[test]
     fn middlebase_some_for_odd() {
         let s = dna("AGACT"); // len 5, middle index 2 => A
-        assert_eq!(*s.middlebase().unwrap(), DnaBase::A);
+        assert_eq!(*s.middlebase().unwrap(), IupacDnaBase::A);
     }
 
     #[test]
