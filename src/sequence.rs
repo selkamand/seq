@@ -388,7 +388,6 @@ impl<B: Base> Seq<B> {
         let pyrimidine_centered = self.pyrimidine_centered();
 
         let any_ambiguous = self.any_ambiguous();
-        // let palindrome = self.is_palindromic();
         let complement = self.complement();
         let reverse_complement = self.reverse_complement();
 
@@ -753,18 +752,6 @@ impl<B: DegenerateBase> Seq<B> {
         // Then we can use the normal is_palindromic method
         Ok(concrete_seq.is_palindromic())
     }
-}
-
-// A helper that lets us describe palindrome status of degenerate or concrete sequences
-// fn palindrome_description<B: Base>(seq: &Seq<B>) -> String {
-//     if seq.any_ambiguous() {
-//         "Unknown due to ambiguous bases".to_string()
-//     } else {
-//         is_concrete_palindrome(seq.as_slice()).to_string()
-//     }
-// }
-
-impl<B: DegenerateBase> Seq<B> {
     /// Attempts to convert a degenerate sequence into its concrete equivalent.
     ///
     /// This method narrows a sequence whose base alphabet may contain Iupac ambiguity
