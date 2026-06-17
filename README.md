@@ -39,12 +39,12 @@ cargo add seqlib --git https://github.com/selkamand/seqlib
 
 ## Core types
 
-Most users should work with the concrete sequence types:
+Most users should work with the sequence types:
 
-- `DnaSeq` — validated DNA sequences (`A, C, G, T`)
-- `RnaSeq` — validated RNA sequences (`A, C, G, U`)
-- `IupacDnaSeq` — validated DNA sequences (`A, C, G, T` + IUPAC ambiguity codes)
-- `IupacRnaSeq` — validated RNA sequences (`A, C, G, U` + IUPAC ambiguity codes)
+- `DnaSeq` — DNA sequences with concrete base types (`A, C, G, T`)
+- `RnaSeq` — RNA sequences with concrete base types (`A, C, G, U`)
+- `IupacDnaSeq` — DNA sequences with degenerate base types (`A, C, G, T` + IUPAC ambiguity codes)
+- `IupacRnaSeq` — RNA sequences with degenerate base types (`A, C, G, U` + IUPAC ambiguity codes)
 
 These are type aliases over a generic `Seq<B>` implementation and are the
 **recommended entry points** for sequence creation and manipulation.
@@ -52,6 +52,13 @@ These are type aliases over a generic `Seq<B>` implementation and are the
 The generic `Seq<B>` type exists to support reusable algorithms and future
 extensions, but most downstream code should not need to interact with it
 directly.
+
+Note that because `Degenerate` sequence types (`IupacDnaSeq`) can have ambiguous bases (like `N`) 
+not all methods will be the same as their `Concrete` sequence equivalents (`DnaSeq`). 
+For example, Iupac sequences have a `is_palindromic_checked()` method that returns a `Result<bool>` with an error 
+when ambiguous bases are present as they prevent us from confidently
+assessing palindrome status either way. In contrast `DnaSeq` has an `ins_palindromic` function that always
+returns `true/false` due to lack of ambiguous bases. 
 
 ---
 
@@ -112,12 +119,10 @@ detection) will conservatively return `false` if ambiguity is present.
 definition**.
 
 A sequence is considered palindromic only if:
-- it contains **no ambiguous bases**,
 - its length is **non-zero and even**, and
 - it is identical to its **reverse complement** at the level of concrete bases.
 
-This guarantees that palindromic sequences can be **counted and filtered without
-overcounting** symbolically palindromic but ambiguous inputs such as `NNNNNN`.
+We can only identify palindromes for sequences with **no ambiguous bases**. For example, `NNNNNNN` is *symbolically* palindromic but in reality the sequence is ambiguous and palindrome status is indeterminate. In these cases it will return an error
 
 ```rust
 use seqlib::sequences::DnaSeq;

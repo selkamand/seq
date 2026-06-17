@@ -50,6 +50,26 @@ pub enum Error {
 
     #[error("Can NOT mutate region: {region}. Spans beyond sequence ({seqlength} bases long")]
     FailedMutateInvalidRegion { region: Region, seqlength: usize },
+
+    #[error("Can NOT determine palindrome: {0}")]
+    PalindromeError(PalindromeErrorReason),
+
+    #[error(
+        "Cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
+    )]
+    CannotConvertDegenerateSequence { position: Pos, base: char },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PalindromeErrorReason {
+    AmbiguousBases,
+}
+impl std::fmt::Display for PalindromeErrorReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PalindromeErrorReason::AmbiguousBases => write!(f, "AmbiguousBases"),
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

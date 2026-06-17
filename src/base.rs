@@ -659,6 +659,73 @@ impl Base for IupacRnaBase {
     }
 }
 
+/// Marker trait for nucleotide base types whose values are always concrete.
+///
+/// A `ConcreteBase` alphabet has no ambiguity symbols: every possible value of
+/// the type represents exactly one biological nucleotide.
+///
+/// For example, `DnaBase` values are limited to `A`, `C`, `G`, and `T`, and
+/// `RnaBase` values are limited to `A`, `C`, `G`, and `U`.
+///
+/// This trait lets `Seq<B>` provide infallible methods for operations that are
+/// unambiguous by construction, such as `is_palindromic() -> bool`.
+///
+/// This is a type-level guarantee: if `B: ConcreteBase`, then no runtime
+/// ambiguity check is required.
+pub trait ConcreteBase: Base {}
+
+/// Marker trait for nucleotide base types whose alphabet may include
+/// degenerate or ambiguous symbols.
+///
+/// A `DegenerateBase` alphabet can contain values that represent more than one
+/// possible biological nucleotide, such as IUPAC ambiguity codes like `N`, `R`,
+/// or `Y`.
+///
+/// Importantly, this does not mean that every value of the type is ambiguous.
+/// For example, `IupacDnaBase::A` is still concrete, but `IupacDnaBase::N` is
+/// ambiguous. This trait means that ambiguity is possible for this base type.
+///
+/// This trait lets `Seq<B>` provide fallible methods for operations that may be
+/// undecidable when ambiguous bases are present, such as
+/// `try_is_palindromic() -> Result<bool>`.
+///
+/// This is a type-level marker only. Use [`Base::is_ambiguous`] to check whether
+/// a particular base value is ambiguous at runtime.
+pub trait DegenerateBase: Base {
+    type ConcreteEquivalent: ConcreteBase;
+
+    fn try_to_concrete(self) -> Option<Self::ConcreteEquivalent>;
+}
+
+impl ConcreteBase for DnaBase {}
+impl ConcreteBase for RnaBase {}
+impl DegenerateBase for IupacRnaBase {
+    type ConcreteEquivalent = RnaBase;
+
+    fn try_to_concrete(self) -> Option<Self::ConcreteEquivalent> {
+        match self {
+            IupacRnaBase::A => Some(RnaBase::A),
+            IupacRnaBase::C => Some(RnaBase::C),
+            IupacRnaBase::G => Some(RnaBase::G),
+            IupacRnaBase::U => Some(RnaBase::U),
+            _ => None,
+        }
+    }
+}
+impl DegenerateBase for IupacDnaBase {
+    type ConcreteEquivalent = DnaBase;
+
+    fn try_to_concrete(self) -> Option<Self::ConcreteEquivalent> {
+        match self {
+            IupacDnaBase::A => Some(DnaBase::A),
+            IupacDnaBase::C => Some(DnaBase::C),
+            IupacDnaBase::G => Some(DnaBase::G),
+            IupacDnaBase::T => Some(DnaBase::T),
+            _ => None,
+        }
+    }
+}
+
 /// Const-time validator for DNA string literals.
 ///
 /// # Panics (during const-eval)

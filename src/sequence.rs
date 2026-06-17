@@ -1,5 +1,9 @@
-use crate::base::{Alphabet, Base, ChemClass, IupacDnaBase, IupacRnaBase};
+use crate::base::{
+    Alphabet, Base, ChemClass, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase,
+    RnaBase,
+};
 use crate::coord::{Pos, Region};
+use crate::error::PalindromeErrorReason::{self};
 use crate::error::{Error, Result};
 use core::fmt;
 
@@ -39,10 +43,13 @@ impl<B: Base> fmt::Display for Seq<B> {
 /// Most users of this crate should prefer `IupacDnaSeq` over the generic `Seq<B>` type
 /// unless they are defining new alphabets or writing generic sequence algorithms.
 ///
+/// If you know your sequence will not include any IUPAC ambiguity codes, consider using [`DnaSeq`]
+/// instead.
+///
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::DnaSeq;
+/// use seqlib::sequence::IupacDnaSeq;
 ///
 /// let seq = IupacDnaSeq::new("ACGTN").unwrap();
 /// println!("{}", seq);
@@ -53,6 +60,29 @@ impl<B: Base> fmt::Display for Seq<B> {
 /// type DnaSeq = Seq<DnaBase>
 /// ```
 pub type IupacDnaSeq = Seq<IupacDnaBase>;
+
+/// A DNA sequence
+///
+/// `DnaSeq` is a struct type for working with DNA sequences.
+/// It represents a validated sequence of DNA bases (ACTG) and does NOT allow IUPAC ambiguity codes
+///
+/// Most users of this crate should prefer `DnaSeq` over the generic `Seq<B>` type
+/// unless they are defining new alphabets or writing generic sequence algorithms.
+///
+/// # Examples
+///
+/// ```rust
+/// use seqlib::sequence::DnaSeq;
+///
+/// let seq = DnaSeq::new("ACGTN").unwrap();
+/// println!("{}", seq);
+/// ```
+///
+/// Internally, this is just a type alias:
+/// ```text
+/// type DnaSeq = Seq<DnaBase>
+/// ```
+pub type DnaSeq = Seq<DnaBase>;
 
 /// An RNA sequence (`Seq<RnaBase>`).
 ///
@@ -77,6 +107,29 @@ pub type IupacDnaSeq = Seq<IupacDnaBase>;
 /// type RnaSeq = Seq<RnaBase>
 /// ```
 pub type IupacRnaSeq = Seq<IupacRnaBase>;
+
+/// A RNA sequence
+///
+/// `RnaSeq` is a struct type for working with RNA sequences.
+/// It represents a validated sequence of RNA bases (ACUG) and does NOT allow IUPAC ambiguity codes
+///
+/// Most users of this crate should prefer `RnaSeq` over the generic `Seq<B>` type
+/// unless they are defining new alphabets or writing generic sequence algorithms.
+///
+/// # Examples
+///
+/// ```rust
+/// use seqlib::sequence::RnaSeq;
+///
+/// let seq = RnaSeq::new("ACGU").unwrap();
+/// println!("{}", seq);
+/// ```
+///
+/// Internally, this is just a type alias:
+/// ```text
+/// type DnaSeq = Seq<DnaBase>
+/// ```
+pub type RnaSeq = Seq<RnaBase>;
 
 // Other functions we can run on Seq
 impl<B: Base> Seq<B> {
@@ -277,88 +330,6 @@ impl<B: Base> Seq<B> {
         self.seq.is_empty()
     }
 
-    /// Returns `true` if the sequence is **certainly palindromic**.
-    ///
-    /// A sequence is considered *palindromic* if it is identical to its
-    /// **reverse complement** at the level of *concrete nucleotide bases*.
-    /// This method uses a **strict, conservative definition** and only returns
-    /// `true` when palindromicity can be established with **100% certainty**.
-    ///
-    /// ## Certainty guarantees
-    ///
-    /// This method returns `true` **only if all of the following hold**:
-    ///
-    /// 1. **The sequence contains no ambiguous bases**
-    ///    - Any IUPAC ambiguity code (e.g. `N`, `R`, `Y`, `S`, etc.) makes it
-    ///      impossible to determine palindromicity with certainty, because such
-    ///      symbols represent multiple possible concrete bases.
-    ///    - Sequences containing *any* ambiguous base always return `false`.
-    ///
-    /// 2. **The sequence length is non-zero and even**
-    ///    - Empty sequences are not considered palindromic.
-    ///    - For DNA/RNA, no unambiguous base is self-complementary, so
-    ///      odd-length sequences cannot form concrete palindromes.
-    ///
-    /// 3. **Each base matches the complement of its mirrored base**
-    ///    - For every position `i` in the first half of the sequence,
-    ///      `seq[i] == complement(seq[n - 1 - i])` must hold.
-    ///
-    /// ## What this method does *not* do
-    ///
-    /// - It does **not** treat symbolically palindromic sequences as palindromes
-    ///   if ambiguity is present (e.g. `NNNNNN` or `SAAS`).
-    /// - It does **not** consider “possibly palindromic” sequences; the result
-    ///   reflects *certainty*, not potential.
-    ///
-    /// ## Intended use
-    ///
-    /// This definition is designed for **counting and filtering palindromic
-    /// sequences without overcounting**, making it suitable for statistical
-    /// analyses, motif discovery, and other contexts where false positives
-    /// caused by ambiguity must be avoided.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use seqlib::sequence::DnaSeq;
-    ///
-    /// // A concrete, unambiguous palindrome
-    /// assert!(DnaSeq::new("GAATTC").unwrap().is_palindromic());
-    ///
-    /// // Symbolically palindromic but ambiguous → false
-    /// assert!(!DnaSeq::new("NNNNNN").unwrap().is_palindromic());
-    ///
-    /// // Odd length → false
-    /// assert!(!DnaSeq::new("AAA").unwrap().is_palindromic());
-    /// ```
-    pub fn is_palindromic(&self) -> bool {
-        // Any ambiguous characters make it impossible to identify palindromes with certainty.
-        // We set all these sequences to `false``
-        if self.any_ambiguous() {
-            return false;
-        }
-
-        let n = self.len();
-
-        // Empty sequences are not considered palindromes
-        if n == 0 {
-            return false;
-        };
-
-        // Only even numbered sequences can be palindromes
-        if n % 2 != 0 {
-            return false;
-        }
-
-        // Actually check palindrome status
-        for i in 0..(n / 2) {
-            if self.seq[i] != self.seq[n - 1 - i].complement() {
-                return false;
-            }
-        }
-        true
-    }
-
     pub fn max_pos(&self) -> Pos {
         Pos::new(self.len()).unwrap_or_default()
     }
@@ -417,7 +388,7 @@ impl<B: Base> Seq<B> {
         let pyrimidine_centered = self.pyrimidine_centered();
 
         let any_ambiguous = self.any_ambiguous();
-        let palindrome = self.is_palindromic();
+        // let palindrome = self.is_palindromic();
         let complement = self.complement();
         let reverse_complement = self.reverse_complement();
 
@@ -433,7 +404,6 @@ impl<B: Base> Seq<B> {
              Any Ambiguous: {any_ambiguous}\n\
              Middle Base: {middlebase}\n\
              Pyrimidine Centered: {pyrimidine_centered}\n\
-             Palindrome: {palindrome}\n
              "
         )
     }
@@ -658,6 +628,200 @@ impl<B: Base> Seq<B> {
     }
 }
 
+// Implement functions specific to sequences of concrete (unambiguous) bases
+// See [`ConcreteBase`] for details on exactly what this means
+impl<B: ConcreteBase> Seq<B> {
+    /// Returns `true` if the sequence is palindromic
+    ///
+    /// A sequence is considered *palindromic* if it is identical to its
+    /// **reverse complement**. A *biological palindrome*
+    /// is **NOT** the same as the a *mirror palindrome* (like racecar).
+    ///
+    /// This method returns `true` **only if all of the following hold**:
+    ///
+    /// 1. **The sequence length is non-zero and even**
+    ///    - Empty sequences are not considered palindromic.
+    ///    - For DNA/RNA, no concrete base is self-complementary, so
+    ///      odd-length sequences cannot form concrete palindromes.
+    ///
+    /// 2. **Each base matches the complement of its mirrored base**
+    ///    - For every position `i` in the first half of the sequence,
+    ///      `seq[i] == complement(seq[n - 1 - i])` must hold.
+    ///
+    /// In genetics, palindromic nucleotide sequences are of interest since they may form secondary structures like hairpins.
+    /// They also alow homodimer enzymes to recognise to interact with recognition sequences symmetrically.
+    /// This is why they make common  
+    ///
+    /// See also [`try_is_palindromic`] if you have a sequence of potentially ambiguous/degenerate
+    /// bases
+    //
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use seqlib::sequence::DnaSeq;
+    ///
+    /// // A DNA biological palindrome
+    /// assert!(DnaSeq::new("GAATTC").unwrap().is_palindromic());
+    ///
+    /// // An RNA biological palindrome
+    /// assert!(DnaSeq::new("GAAUUC").unwrap().is_palindromic());
+    ///
+    /// // Returns false for mirror (non-genetic) palindrome
+    /// assert!(!DnaSeq::new("ATTA").unwrap().is_palindromic());
+    ///
+    /// // Odd length → false
+    /// assert!(!DnaSeq::new("AAA").unwrap().is_palindromic());
+    /// ```
+    pub fn is_palindromic(&self) -> bool {
+        let n = self.len();
+
+        // Empty sequences are not considered palindromes
+        if n == 0 {
+            return false;
+        };
+
+        // Only even numbered sequences can be palindromes
+        if !n.is_multiple_of(2) {
+            return false;
+        }
+
+        // Check palindrome status
+        for i in 0..(n / 2) {
+            if self.seq[i] != self.seq[n - 1 - i].complement() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+// Implement functions specific to sequences of degenerate (potentially ambiguous) bases
+// See [`ConcreteBase`] for details on exactly what this means
+impl<B: DegenerateBase> Seq<B> {
+    /// Check whether a sequence **palindromic**.
+    ///
+    /// A sequence is considered *palindromic* if it is identical to its
+    /// **reverse complement** at the level of *concrete nucleotide bases*.
+    /// This method only returns `Ok(true)` when palindromicity can be established
+    /// with **100% certainty**.
+    ///
+    /// ## Certainty guarantees
+    ///
+    /// This method returns Ok(true) **only if all of the following hold**:
+    ///
+    /// 1. **The sequence contains no ambiguous bases**
+    ///    - Any IUPAC ambiguity code (e.g. `N`, `R`, `Y`, `S`, etc.) makes it
+    ///      impossible to determine palindromicity with certainty, because such
+    ///      symbols represent multiple possible concrete bases.
+    ///    - Sequences containing *any* ambiguous base always return an [`Error::PalindromeError`].
+    ///
+    /// 2. **The sequence length is non-zero and even**
+    ///    - Empty sequences are not considered palindromic.
+    ///    - For DNA/RNA, no unambiguous base is self-complementary, so
+    ///      odd-length sequences cannot form concrete palindromes.
+    ///
+    /// 3. **Each base matches the complement of its mirrored base**
+    ///    - For every position `i` in the first half of the sequence,
+    ///      `seq[i] == complement(seq[n - 1 - i])` must hold.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use seqlib::sequence::IupacDnaSeq;
+    ///
+    /// // A concrete, unambiguous palindrome -> Ok(true)
+    /// assert!(IupacDnaSeq::new("GAATTC").unwrap().is_palindromic() == Ok(true));
+    ///
+    /// // Symbolically palindromic but ambiguous throws an error
+    /// assert!(!IupacDnaSeq::new("NNNNNN").unwrap().is_palindromic().is_err());
+    ///
+    /// // Odd length -> Ok(false)
+    /// assert!(IupacDnaSeq::new("AAA").unwrap().is_palindromic() == Ok(false));
+    /// ```
+    pub fn is_palindromic_checked(&self) -> Result<bool> {
+        // Any ambiguous characters make it impossible to identify palindromes with certainty.
+        // So we start by converting our degenerate sequence to a concrete one
+        let concrete_seq = match self.try_to_concrete() {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::PalindromeError(
+                    PalindromeErrorReason::AmbiguousBases,
+                ));
+            }
+        };
+
+        // Then we can use the normal is_palindromic method
+        Ok(concrete_seq.is_palindromic())
+    }
+}
+
+// A helper that lets us describe palindrome status of degenerate or concrete sequences
+// fn palindrome_description<B: Base>(seq: &Seq<B>) -> String {
+//     if seq.any_ambiguous() {
+//         "Unknown due to ambiguous bases".to_string()
+//     } else {
+//         is_concrete_palindrome(seq.as_slice()).to_string()
+//     }
+// }
+
+impl<B: DegenerateBase> Seq<B> {
+    /// Attempts to convert a degenerate sequence into its concrete equivalent.
+    ///
+    /// This method narrows a sequence whose base alphabet may contain Iupac ambiguity
+    /// symbols into the corresponding concrete base alphabet. For example:
+    ///
+    /// - `Seq<IupacDnaBase>` becomes `Seq<DnaBase>`
+    /// - `Seq<IupacRnaBase>` becomes `Seq<RnaBase>`
+    ///
+    /// Conversion succeeds only if every base in the sequence has an unambiguous
+    /// concrete representation. Bases such as `A`, `C`, `G`, and `T`/`U` can be
+    /// converted, while ambiguity codes such as `N`, `R`, or `Y` cause conversion
+    /// to fail.
+    ///
+    /// The returned sequence preserves the original base order and length.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::CannotConvertDegenerateSequence`] if any base cannot be
+    /// represented in the concrete alphabet. The error reports the first ambiguous
+    /// base encountered, using a 1-based sequence position.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use seqlib::sequence::IupacDnaSeq;
+    ///
+    /// let seq = IupacDnaSeq::new("ACGT").unwrap();
+    /// let concrete = seq.try_to_concrete().unwrap();
+    ///
+    /// assert_eq!(concrete.to_string(), "ACGT");
+    /// ```
+    ///
+    /// ```rust
+    /// use seqlib::sequence::IupacDnaSeq;
+    ///
+    /// let seq = IupacDnaSeq::new("ACNT").unwrap();
+    ///
+    /// assert!(seq.try_to_concrete().is_err());
+    /// ```
+    pub fn try_to_concrete(&self) -> Result<Seq<B::ConcreteEquivalent>> {
+        let mut out = Vec::with_capacity(self.len());
+
+        for (idx, base) in self.as_slice().iter().copied().enumerate() {
+            let concrete =
+                base.try_to_concrete()
+                    .ok_or_else(|| Error::CannotConvertDegenerateSequence {
+                        position: Pos::new(idx + 1).unwrap(),
+                        base: base.to_char(),
+                    })?;
+
+            out.push(concrete);
+        }
+
+        Ok(Seq { seq: out })
+    }
+}
+
 pub trait BaseSliceExt<B: Base> {
     fn to_string_upper(&self) -> String;
 }
@@ -716,12 +880,11 @@ macro_rules! dna {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::IupacDnaBase;
 
     // --- Helpers ---
 
-    fn dna(s: &str) -> IupacDnaSeq {
-        IupacDnaSeq::new(s).unwrap()
+    fn dna(s: &str) -> DnaSeq {
+        DnaSeq::new(s).unwrap()
     }
 
     fn rna(s: &str) -> RnaSeq {
@@ -785,7 +948,7 @@ mod tests {
     #[test]
     fn middlebase_some_for_odd() {
         let s = dna("AGACT"); // len 5, middle index 2 => A
-        assert_eq!(*s.middlebase().unwrap(), IupacDnaBase::A);
+        assert_eq!(*s.middlebase().unwrap(), DnaBase::A);
     }
 
     #[test]
