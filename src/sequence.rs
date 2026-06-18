@@ -74,7 +74,7 @@ pub type IupacDnaSeq = Seq<IupacDnaBase>;
 /// ```rust
 /// use seqlib::sequence::DnaSeq;
 ///
-/// let seq = DnaSeq::new("ACGTN").unwrap();
+/// let seq = DnaSeq::new("ACGT").unwrap();
 /// println!("{}", seq);
 /// ```
 ///
@@ -96,7 +96,7 @@ pub type DnaSeq = Seq<DnaBase>;
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::RnaSeq;
+/// use seqlib::sequence::IupacRnaSeq;
 ///
 /// let seq = IupacRnaSeq::new("ACGUN").unwrap();
 /// println!("{}", seq);
@@ -104,7 +104,7 @@ pub type DnaSeq = Seq<DnaBase>;
 ///
 /// Internally, this is just a type alias:
 /// ```text
-/// type RnaSeq = Seq<RnaBase>
+/// type IupacRnaSeq = Seq<IupacRnaBase>
 /// ```
 pub type IupacRnaSeq = Seq<IupacRnaBase>;
 
@@ -127,7 +127,7 @@ pub type IupacRnaSeq = Seq<IupacRnaBase>;
 ///
 /// Internally, this is just a type alias:
 /// ```text
-/// type DnaSeq = Seq<DnaBase>
+/// type RnaSeq = Seq<RnaBase>
 /// ```
 pub type RnaSeq = Seq<RnaBase>;
 
@@ -657,13 +657,13 @@ impl<B: ConcreteBase> Seq<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::sequence::{DnaSeq, RnaSeq};
     ///
     /// // A DNA biological palindrome
     /// assert!(DnaSeq::new("GAATTC").unwrap().is_palindromic());
     ///
     /// // An RNA biological palindrome
-    /// assert!(DnaSeq::new("GAAUUC").unwrap().is_palindromic());
+    /// assert!(RnaSeq::new("GAAUUC").unwrap().is_palindromic());
     ///
     /// // Returns false for mirror (non-genetic) palindrome
     /// assert!(!DnaSeq::new("ATTA").unwrap().is_palindromic());
@@ -729,13 +729,13 @@ impl<B: DegenerateBase> Seq<B> {
     /// use seqlib::sequence::IupacDnaSeq;
     ///
     /// // A concrete, unambiguous palindrome -> Ok(true)
-    /// assert!(IupacDnaSeq::new("GAATTC").unwrap().is_palindromic() == Ok(true));
+    /// assert!(IupacDnaSeq::new("GAATTC").unwrap().is_palindromic_checked() == Ok(true));
     ///
     /// // Symbolically palindromic but ambiguous throws an error
-    /// assert!(!IupacDnaSeq::new("NNNNNN").unwrap().is_palindromic().is_err());
+    /// assert!(IupacDnaSeq::new("NNNNNN").unwrap().is_palindromic_checked().is_err());
     ///
     /// // Odd length -> Ok(false)
-    /// assert!(IupacDnaSeq::new("AAA").unwrap().is_palindromic() == Ok(false));
+    /// assert!(IupacDnaSeq::new("AAA").unwrap().is_palindromic_checked() == Ok(false));
     /// ```
     pub fn is_palindromic_checked(&self) -> Result<bool> {
         // Any ambiguous characters make it impossible to identify palindromes with certainty.
@@ -870,12 +870,12 @@ mod tests {
 
     // --- Helpers ---
 
-    fn dna(s: &str) -> DnaSeq {
-        DnaSeq::new(s).unwrap()
+    fn dna(s: &str) -> IupacDnaSeq {
+        IupacDnaSeq::new(s).unwrap()
     }
 
-    fn rna(s: &str) -> RnaSeq {
-        RnaSeq::new(s).unwrap()
+    fn rna(s: &str) -> IupacRnaSeq {
+        IupacRnaSeq::new(s).unwrap()
     }
 
     // --- Construction / strict alphabets ---
@@ -935,7 +935,7 @@ mod tests {
     #[test]
     fn middlebase_some_for_odd() {
         let s = dna("AGACT"); // len 5, middle index 2 => A
-        assert_eq!(*s.middlebase().unwrap(), DnaBase::A);
+        assert_eq!(*s.middlebase().unwrap(), IupacDnaBase::A);
     }
 
     #[test]
@@ -1016,31 +1016,31 @@ mod tests {
     #[test]
     fn is_palindromic_true_for_simple_palindrome() {
         // GAATTC is a classic restriction site palindrome (EcoRI)
-        assert!(dna("GAATTC").is_palindromic());
+        assert!(dna("GAATTC").is_palindromic_checked().unwrap());
     }
 
     #[test]
     fn is_palindromic_false_for_non_palindrome() {
-        assert!(!dna("AGACT").is_palindromic());
+        assert!(!dna("AGACT").is_palindromic_checked().unwrap());
     }
 
     #[test]
     fn is_palindromic_handles_edge_cases() {
         // Empty: empty sequences are not considered palindromic
-        assert!(!dna("").is_palindromic());
+        assert!(!dna("").is_palindromic_checked().unwrap());
 
         // Length-1 DNA cannot be palindromic unless the base equals its own complement.
         // For DNA A<->T and C<->G, so no unambiguous base is self-complementary.
-        assert!(!dna("A").is_palindromic());
-        assert!(!dna("C").is_palindromic());
+        assert!(!dna("A").is_palindromic_checked().unwrap());
+        assert!(!dna("C").is_palindromic_checked().unwrap());
 
-        // Ambiguous IUPAC symbols like  S (C/G) can never be classified as symbolic with
-        // certainty since each A might be a different base!
-        assert!(!dna("SAAS").is_palindromic());
+        // Ambiguous IUPAC symbols like  S (C/G) can never be classified as palindromic with
+        // certainty since each S might be a different base! Should return error.
+        assert!(dna("SAAS").is_palindromic_checked().is_err());
 
         // Odd length sequences are never palindromes since the middle base will always break the
         // palindrome (it cannot be identical when reverse complemented)
-        assert!(!dna("AAA").is_palindromic());
+        assert!(!dna("AAA").is_palindromic_checked().unwrap());
     }
 
     // --- Subsequence methods ---

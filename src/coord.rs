@@ -254,7 +254,6 @@ impl Default for Region {
         }
     }
 }
-
 /// Construct a [`Pos`] from a **compile-time** integer literal.
 ///
 /// This macro is intended for constant contexts and test code where the position
@@ -272,7 +271,8 @@ impl Default for Region {
 ///
 /// # Examples
 /// ```
-/// use seqlib::coord::{Pos, pos};
+/// use seqlib::coord::{Pos};
+/// use seqlib::pos;
 ///
 /// const P: Pos = pos!(123);
 /// assert_eq!(P.get(), 123);

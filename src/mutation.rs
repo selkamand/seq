@@ -1,15 +1,17 @@
 use core::fmt;
 
 use crate::{
-    base::{Base, ChemClass, IupacDnaBase, IupacRnaBase},
+    base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     context::ContextWindow,
     coord::{Pos, Region},
     error::Result,
     sequence::Seq,
 };
 
-pub type DnaSmallMutation = SmallMutation<IupacDnaBase>;
-pub type RnaSmallMutation = SmallMutation<IupacRnaBase>;
+pub type IupacDnaSmallMutation = SmallMutation<IupacDnaBase>;
+pub type IupacRnaSmallMutation = SmallMutation<IupacRnaBase>;
+pub type DnaSmallMutation = SmallMutation<DnaBase>;
+pub type RnaSmallMutation = SmallMutation<RnaBase>;
 
 /// A small mutation (SNV/MNV/indel) over a specific nucleotide alphabet `B`.
 ///
@@ -464,31 +466,39 @@ mod tests {
 
     // --- Helpers ---
 
-    fn dna(s: &str) -> Seq<IupacDnaBase> {
+    fn dna_iupac(s: &str) -> Seq<IupacDnaBase> {
         Seq::<IupacDnaBase>::new(s).unwrap()
     }
 
-    fn rna(s: &str) -> Seq<IupacRnaBase> {
+    fn _dna(s: &str) -> Seq<DnaBase> {
+        Seq::<DnaBase>::new(s).unwrap()
+    }
+
+    fn rna_iupac(s: &str) -> Seq<IupacRnaBase> {
         Seq::<IupacRnaBase>::new(s).unwrap()
     }
 
-    fn dna_mut(ref_allele: &str, alt_allele: &str) -> DnaSmallMutation {
-        SmallMutation::new(
+    fn _rna(s: &str) -> Seq<RnaBase> {
+        Seq::<RnaBase>::new(s).unwrap()
+    }
+
+    fn dna_mut(ref_allele: &str, alt_allele: &str) -> IupacDnaSmallMutation {
+        IupacDnaSmallMutation::new(
             "chr1".to_string(),
             Pos::new(123).unwrap(),
-            dna(ref_allele),
-            dna(alt_allele),
+            dna_iupac(ref_allele),
+            dna_iupac(alt_allele),
             false,
             true,
         )
     }
 
-    fn rna_mut(ref_allele: &str, alt_allele: &str) -> RnaSmallMutation {
-        SmallMutation::new(
+    fn rna_mut(ref_allele: &str, alt_allele: &str) -> IupacRnaSmallMutation {
+        IupacRnaSmallMutation::new(
             "tx1".to_string(),
             Pos::new(7).unwrap(),
-            rna(ref_allele),
-            rna(alt_allele),
+            rna_iupac(ref_allele),
+            rna_iupac(alt_allele),
             false,
             true,
         )
