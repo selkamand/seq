@@ -36,3 +36,4 @@ pub mod coord;
 pub mod error;
 pub mod mutation;
 pub mod sequence;
+pub mod specialmuts;
