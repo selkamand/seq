@@ -3,8 +3,8 @@ use core::fmt;
 use crate::{
     base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     context::ContextWindow,
-    coord::{Pos, Region},
-    error::Result,
+    coord::{Pos, Region, Strand},
+    error::{Error, Result},
     sequence::Seq,
 };
 
@@ -14,7 +14,6 @@ pub type DnaSmallMutation = SmallMutation<DnaBase>;
 pub type RnaSmallMutation = SmallMutation<RnaBase>;
 
 /// A small mutation (SNV/MNV/indel) over a specific nucleotide alphabet `B`.
-///
 /// - `SmallMutation<DnaBase>` is DNA
 /// - `SmallMutation<RnaBase>` is RNA
 ///
@@ -23,27 +22,38 @@ pub type RnaSmallMutation = SmallMutation<RnaBase>;
 /// - `reference` and `alternative` are stored **as provided** by the caller.
 ///   No left/right trimming, normalization, or decomposition is performed.
 ///
-/// ## Multi-allelic sites
-/// - `multiallelic` indicates that this mutation originated from a site with multiple ALT
-///   alleles (e.g. a VCF record with `ALT=A,C`). It is purely metadata for downstream
-///   handling; it does not change coordinate or allele semantics.
-///
-/// ## Filter / QC status (`pass`)
-/// - `pass` indicates whether the source record **passed upstream filtering**.
-///   In VCF terms this typically corresponds to the `FILTER` field being `PASS`
-///   (or `.` depending on your chosen convention).
-/// - `pass` is **metadata only**:
-///   - it does *not* imply biological validity,
-///   - it does *not* change classification (`SNV`/`INDEL`/etc),
-///   - and it should not be silently acted on by this type.
-///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmallMutation<B: Base> {
+    /// Chromosome / Contig of mutation
     chromosome: String,
-    position: Pos, // 1-based position (start)
+    /// 1-based position (start)
+    position: Pos,
+    /// Original base sequence in reference
     reference: Seq<B>,
+
+    /// Mutation of sequence
     alternative: Seq<B>,
+
+    /// If mutation was on a double stranded molecule like DNA
+    /// then field indicates the strand of the reference genome the reference allele was on.
+    /// If mutation comes from an unstranded molecule (single stranded DNA / RNA)
+    /// or strand is not known can be set to None.
+    strand: Option<Strand>,
+
+    /// - `multiallelic` indicates that this mutation originated from a site with multiple ALT
+    ///   alleles (e.g. a VCF record with `ALT=A,C`). It is purely metadata for downstream
+    ///   handling; it does not change coordinate or allele semantics.
+    ///   It does not tell you how this was handled by mutation parsers (e.g. was alt just the
+    ///   first allele, or did the parser read each allele into a separate SmallMutation object)
     multiallelic: bool,
+
+    /// ## Filter / QC status (`pass`)
+    /// - `pass` indicates whether the source record **passed upstream filtering**.
+    ///   In VCF terms this typically corresponds to the `FILTER` field being `PASS`
+    ///   (or `.` depending on your chosen convention).
+    /// - `pass` is **metadata only**:
+    ///   - it does *not* imply biological validity,
+    ///   - it does *not* change classification (`SNV`/`INDEL`/etc)
     pass: bool,
 }
 
@@ -59,11 +69,14 @@ impl<B: Base> fmt::Display for SmallMutation<B> {
         // Use the write! macro to format the output.
         write!(
             f,
-            "{}:{} {}>{} (delta: {}; class: {}; multiallelic:{}; pass:{})",
+            "{}:{} {}>{} (strand: {}, delta: {}; class: {}; multiallelic:{}; pass:{})",
             self.chromosome,
             self.position,
             self.reference,
             self.alternative,
+            self.strand
+                .map(|opt| opt.to_string())
+                .unwrap_or("None".to_string()),
             self.delta(),
             self.class(),
             self.multiallelic,
@@ -93,6 +106,7 @@ impl<B: Base> SmallMutation<B> {
     /// - `position`: 1-based start coordinate
     /// - `reference`: reference allele sequence
     /// - `alternative`: alternative allele sequence
+    /// - `strand`: Strand
     /// - `multiallelic`: whether the originating site had multiple ALT alleles
     /// - `pass`: whether the originating record passed upstream filters/QC
     /// - `context`: optional context sequence (e.g. trinucleotide context)
@@ -101,6 +115,7 @@ impl<B: Base> SmallMutation<B> {
         position: Pos,
         reference: Seq<B>,
         alternative: Seq<B>,
+        strand: Option<Strand>,
         multiallelic: bool,
         pass: bool,
     ) -> Self {
@@ -111,6 +126,7 @@ impl<B: Base> SmallMutation<B> {
             alternative,
             multiallelic,
             pass,
+            strand,
         }
     }
 
@@ -246,13 +262,14 @@ impl<B: Base> SmallMutation<B> {
     /// ```rust
     /// use seqlib::mutation::DnaSmallMutation;
     /// use seqlib::sequence::DnaSeq;
-    /// use seqlib::coord::Pos;
+    /// use seqlib::coord::{Pos, Strand};
     ///
     /// let m = DnaSmallMutation::new(
     ///     "chr1".to_string(),
     ///     Pos::new(123).unwrap(),
     ///     DnaSeq::new("A").unwrap(),
     ///     DnaSeq::new("G").unwrap(),
+    ///     Some(Strand::Positive),
     ///     false,
     ///     true,
     /// );
@@ -267,6 +284,52 @@ impl<B: Base> SmallMutation<B> {
             self.reference(),
             self.alternative()
         )
+    }
+
+    /// Reverse complement mutation
+    /// Reverse complements reference and alternative sequence and flips strand
+    /// field if present.
+    pub fn reverse_complement(&self) -> Self {
+        // Flip Strand
+        let newstrand = self.strand.map(|strand| strand.flip());
+
+        Self {
+            chromosome: self.chromosome.clone(),
+            position: self.position,
+            reference: self.reference.reverse_complement(),
+            alternative: self.alternative.reverse_complement(),
+            strand: newstrand,
+            multiallelic: self.multiallelic,
+            pass: self.pass,
+        }
+    }
+
+    /// Ensure middle base of reference sequence is a pyrimidine
+    /// This is accomplished by reverse complementing the mutation
+    /// if there is a purine centered.
+    ///
+    /// # Errors
+    /// If the middlebase is ambiguous, or the reference sequence is even in length (has no
+    /// middlebase) will return an Error
+    pub fn pyrimidine_center(&self) -> Result<Self> {
+        let refseq = &self.reference;
+
+        let ref_middlebase_chemclass = match refseq.middlebase() {
+            Some(middle) => middle.chemical_class(),
+            None => return Err(Error::InvalidMiddlebaseCannotPyrimidineCenter),
+        };
+
+        // Early return if middle base of reference is already a Pyrimidine.
+        // Error if middle base of reference is Ambiguous
+        let _ = match ref_middlebase_chemclass {
+            ChemClass::Purine => true,
+            ChemClass::Pyrimidine => return Ok(self.clone()),
+            ChemClass::Ambiguous => return Err(Error::InvalidMiddlebaseCannotPyrimidineCenter),
+        };
+
+        // At this point we know ChemClass of middle base in ref is a Purine
+        // So to ensure pyrimidine is centered we need to reverse complement both ref and alt
+        Ok(self.reverse_complement())
     }
 }
 
@@ -488,6 +551,7 @@ mod tests {
             Pos::new(123).unwrap(),
             dna_iupac(ref_allele),
             dna_iupac(alt_allele),
+            Some(Strand::Positive),
             false,
             true,
         )
@@ -499,6 +563,7 @@ mod tests {
             Pos::new(7).unwrap(),
             rna_iupac(ref_allele),
             rna_iupac(alt_allele),
+            Some(Strand::Positive),
             false,
             true,
         )

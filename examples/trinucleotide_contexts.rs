@@ -1,4 +1,4 @@
-use seqlib::coord::Pos;
+use seqlib::coord::{Pos, Strand};
 use seqlib::{
     context::{self, Orientation},
     error::Result,
@@ -12,6 +12,7 @@ fn main() -> Result<()> {
         pos!(2000),
         dna!("A"),
         dna!("C"),
+        Some(Strand::Positive),
         false,
         false,
     );

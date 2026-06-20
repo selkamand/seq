@@ -254,6 +254,46 @@ impl Default for Region {
         }
     }
 }
+
+// TODO: Think through strategy around orientations. Are they Sequence level, Mutation level, or
+// only relevant for MutationWithContext Objects (which are currently the only orientation aware
+// processes). See Orientation enum of contexts module
+// /// Strand
+
+/// The strand. Exactly what this enum means
+/// can depend on the context.
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum Strand {
+    /// The positive strand (`+`).
+    ///
+    /// In some contexts called the _sense_ or _forward_ strand.
+    Positive,
+    /// The negative strand (`-`).
+    ///
+    /// In some contexts described as the _antisense_ or _reverse_ strand.
+    Negative,
+}
+
+impl std::fmt::Display for Strand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Strand::Positive => write!(f, "+"),
+            Strand::Negative => write!(f, "-"),
+        }
+    }
+}
+
+impl Strand {
+    /// Flip strand from Positive to Negative or Negative to Positive
+    pub fn flip(&self) -> Self {
+        match self {
+            Strand::Positive => Strand::Negative,
+            Strand::Negative => Strand::Positive,
+        }
+    }
+}
+
+///
 /// Construct a [`Pos`] from a **compile-time** integer literal.
 ///
 /// This macro is intended for constant contexts and test code where the position

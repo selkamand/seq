@@ -1,6 +1,7 @@
 use crate::{
     base::Alphabet,
     coord::{Pos, Region},
+    mutation::SmallMutation,
 };
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -58,6 +59,11 @@ pub enum Error {
         "Cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
     )]
     CannotConvertDegenerateSequence { position: Pos, base: char },
+
+    #[error(
+        "Cannot pyrmidine-center the mutation. Either sequence was either length or middlebase was a degenerate Iupac character (like N)"
+    )]
+    InvalidMiddlebaseCannotPyrimidineCenter,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
