@@ -14,7 +14,7 @@ use crate::{
 /// Error raised when the [`SmallMutation`] types cannot be narrowed to a concrete SBS.
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum SingleBaseSubstitutionError {
-    #[error("mutation class {class} is not a single-nucleotide variant")]
+    #[error("mutation class was [{class}] and not SmallMutationType::SNV")]
     WrongClass { class: SmallMutationType },
 
     #[error(
@@ -26,13 +26,15 @@ pub enum SingleBaseSubstitutionError {
         "alternative base '{base}' is ambiguous so can NOT be represented as a single, concrete base"
     )]
     AmbiguousAlternative { base: char },
+    #[error("Reference and alternative bases are identical ('{base}')")]
+    IdenticalBases { base: char },
 }
 
 /// A simple representation of a single base substition
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct SingleBaseSubstitution<B: Base> {
-    pub reference: B,
-    pub alternative: B,
+    reference: B,
+    alternative: B,
 }
 
 // Add pub types for concrete base sequences
@@ -40,12 +42,22 @@ pub type DnaSingleBaseSubstitution = SingleBaseSubstitution<DnaBase>;
 pub type RnaSingleBaseSubstitution = SingleBaseSubstitution<RnaBase>;
 
 impl<B: Base> SingleBaseSubstitution<B> {
-    /// Constructor
-    pub fn new(reference: B, alternative: B) -> Self {
-        Self {
+    /// Construct a new single base substitution
+    ///
+    /// # Errors
+    /// If reference and alternative bases are identical, will return
+    /// `SingleBaseSubstitutionError::IdenticalBases`
+    pub fn new(reference: B, alternative: B) -> Result<Self, SingleBaseSubstitutionError> {
+        if alternative == reference {
+            return Err(SingleBaseSubstitutionError::IdenticalBases {
+                base: alternative.to_char(),
+            });
+        }
+
+        Ok(Self {
             reference,
             alternative,
-        }
+        })
     }
 
     /// Reverse complement a single base substitution
@@ -94,10 +106,10 @@ impl<B: Base> TryFrom<&SmallMutation<B>> for SingleBaseSubstitution<B> {
 
     fn try_from(value: &SmallMutation<B>) -> Result<Self, Self::Error> {
         ensure_snv(value)?;
-        Ok(Self::new(
+        Self::new(
             value.reference().as_slice()[0],
             value.alternative().as_slice()[0],
-        ))
+        )
     }
 }
 
@@ -119,7 +131,7 @@ impl TryFrom<&SmallMutation<IupacDnaBase>> for DnaSingleBaseSubstitution {
                 base: value.alternative().as_slice()[0].to_char(),
             })?;
 
-        Ok(Self::new(reference, alternative))
+        Self::new(reference, alternative)
     }
 }
 
@@ -140,7 +152,7 @@ impl TryFrom<&SmallMutation<IupacRnaBase>> for RnaSingleBaseSubstitution {
                 base: value.alternative().as_slice()[0].to_char(),
             })?;
 
-        Ok(Self::new(reference, alternative))
+        Self::new(reference, alternative)
     }
 }
 
@@ -213,7 +225,7 @@ mod tests {
 
     #[test]
     fn pyrimidine_center_reverse_complements_purine_reference() {
-        let sbs = DnaSingleBaseSubstitution::new(DnaBase::G, DnaBase::A);
+        let sbs = DnaSingleBaseSubstitution::new(DnaBase::G, DnaBase::A).unwrap();
         let centered = sbs.pyrimidine_center().unwrap();
 
         assert_eq!(centered.reference(), &DnaBase::T);

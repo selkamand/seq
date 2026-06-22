@@ -130,6 +130,26 @@ impl<B: Base> SmallMutation<B> {
         }
     }
 
+    /// Create a minimal mutation by specifying Chromosome, Position, Reference and Alt
+    /// Automatically sets other fields to a default (Strand to positive, multiallelic to false,
+    /// pass to true)
+    pub fn new_minimal(
+        chromosome: String,
+        position: Pos,
+        reference: Seq<B>,
+        alternative: Seq<B>,
+    ) -> Self {
+        Self {
+            chromosome,
+            position,
+            reference,
+            alternative,
+            multiallelic: false,
+            pass: true,
+            strand: Some(Strand::Positive),
+        }
+    }
+
     // --- Accessors (read-only) ---
 
     /// Returns the chromosome / contig name (e.g. `"chr1"`).
