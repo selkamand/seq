@@ -68,8 +68,8 @@ impl<B: Base> SingleBaseSubstitution<B> {
     /// because in a single base subtition there is only one nucleotide in reference or alt
     pub fn reverse_complement(&self) -> Self {
         Self {
-            reference: self.alternative.complement(),
-            alternative: self.reference.complement(),
+            reference: self.reference.complement(),
+            alternative: self.alternative.complement(),
         }
     }
 
@@ -257,11 +257,11 @@ mod tests {
 
     #[test]
     fn pyrimidine_center_reverse_complements_purine_reference() {
-        let sbs = DnaSingleBaseSubstitution::new(DnaBase::G, DnaBase::A).unwrap();
+        let sbs = DnaSingleBaseSubstitution::new(DnaBase::G, DnaBase::T).unwrap();
         let centered = sbs.try_pyrimidine_center().unwrap();
 
-        assert_eq!(centered.reference(), &DnaBase::T);
-        assert_eq!(centered.alternative(), &DnaBase::C);
+        assert_eq!(centered.reference(), &DnaBase::C);
+        assert_eq!(centered.alternative(), &DnaBase::A);
     }
 
     #[test]
