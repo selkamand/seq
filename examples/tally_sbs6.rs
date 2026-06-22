@@ -40,16 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let sbs_pyrimidine_centered = match sbs.try_pyrimidine_center() {
-            Ok(s) => s,
-            Err(err) => {
-                eprintln!(
-                    "Skipping mutation: {} as it was not a valid single base substition: {err}",
-                    mutation.chrom_pos_ref_alt()
-                );
-                continue;
-            }
-        };
+        let sbs_pyrimidine_centered = sbs.pyrimidine_center();
 
         match (
             *sbs_pyrimidine_centered.reference(),

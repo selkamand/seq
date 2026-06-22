@@ -7,7 +7,7 @@
 //! (vectors of bases).
 //! you force ref and alt to be individual bases
 use crate::{
-    base::{Base, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
+    base::{Base, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     mutation::{SmallMutation, SmallMutationType},
 };
 
@@ -166,6 +166,18 @@ fn ensure_snv<B: Base>(mutation: &SmallMutation<B>) -> Result<(), SingleBaseSubs
         Ok(())
     } else {
         Err(SingleBaseSubstitutionError::WrongClass { class })
+    }
+}
+
+// Mutation Specific methods for concrete base mutations
+impl<B: ConcreteBase> SingleBaseSubstitution<B> {
+    /// Ensure the reference base is a pyrimidine
+    /// This is accomplished by reverse complementing the mutation if the reference base is not a pyrimidine.
+    pub fn pyrimidine_center(&self) -> Self {
+        match self.reference.chemical_class() {
+            crate::base::ChemClass::Purine => self.reverse_complement(),
+            crate::base::ChemClass::Pyrimidine => *self,
+        }
     }
 }
 
