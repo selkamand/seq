@@ -24,7 +24,7 @@ use crate::error::BaseError;
 /// The contract is:
 /// - `complement` is infallible (it always returns something)
 /// - `try_from_ascii` is the validation gate (it may fail)
-pub trait Base: Copy + Eq + fmt::Debug + fmt::Display {
+pub trait Base: Copy + Eq + fmt::Debug + fmt::Display + Sized {
     /// Name of the alphabet
     const ALPHABET: Alphabet;
 
@@ -689,7 +689,7 @@ impl Base for IupacRnaBase {
 ///
 /// This is a type-level guarantee: if `B: ConcreteBase`, then no runtime
 /// ambiguity check is required.
-pub trait ConcreteBase: Base {
+pub trait ConcreteBase: Base + Sized {
     fn chemical_class(&self) -> ChemClass;
 }
 
@@ -710,7 +710,7 @@ pub trait ConcreteBase: Base {
 ///
 /// This is a type-level marker only. Use [`Base::is_ambiguous`] to check whether
 /// a particular base value is ambiguous at runtime.
-pub trait DegenerateBase: Base {
+pub trait DegenerateBase: Base + Sized {
     type ConcreteEquivalent: ConcreteBase;
 
     fn try_to_concrete(self) -> Option<Self::ConcreteEquivalent>;
