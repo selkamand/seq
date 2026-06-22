@@ -4,9 +4,11 @@ use crate::{
     base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     context::ContextWindow,
     coord::{Pos, Region, Strand},
-    error::{Error, Result},
+    error::MutationError as Error,
     sequence::Seq,
 };
+
+pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 pub type IupacDnaSmallMutation = SmallMutation<IupacDnaBase>;
 pub type IupacRnaSmallMutation = SmallMutation<IupacRnaBase>;
@@ -253,7 +255,11 @@ impl<B: Base> SmallMutation<B> {
         let r = self.reference.as_slice().first()?;
         let a = self.alternative.as_slice().first()?;
 
-        TiTv::from_chemical_class(r.chemical_class(), a.chemical_class())
+        let r_chemical_class = r.try_chemical_class().ok()?;
+        let a_chemical_class = a.try_chemical_class().ok()?;
+
+        let titv = TiTv::from_chemical_class(r_chemical_class, a_chemical_class);
+        Some(titv)
     }
 
     /// Render a compact `chrom:pos REF>ALT` representation of the mutation.
@@ -331,25 +337,25 @@ impl<B: Base> SmallMutation<B> {
     /// # Errors
     /// If the middlebase is ambiguous, or the reference sequence is even in length (has no
     /// middlebase) will return an Error
-    pub fn pyrimidine_center(&self) -> Result<Self> {
+    pub fn try_pyrimidine_center(&self) -> Result<Self> {
         let refseq = &self.reference;
 
-        let ref_middlebase_chemclass = match refseq.middlebase() {
-            Some(middle) => middle.chemical_class(),
-            None => return Err(Error::InvalidMiddlebaseCannotPyrimidineCenter),
+        let Some(middlebase) = refseq.middlebase() else {
+            return Err(Error::MissingMiddleBase);
         };
 
-        // Early return if middle base of reference is already a Pyrimidine.
-        // Error if middle base of reference is Ambiguous
-        let _ = match ref_middlebase_chemclass {
-            ChemClass::Purine => true,
-            ChemClass::Pyrimidine => return Ok(self.clone()),
-            ChemClass::Ambiguous => return Err(Error::InvalidMiddlebaseCannotPyrimidineCenter),
-        };
+        let middle_chemclass =
+            middlebase
+                .try_chemical_class()
+                .map_err(|_| Error::AmbiguousMiddleBase {
+                    base: middlebase.to_char(),
+                })?;
 
-        // At this point we know ChemClass of middle base in ref is a Purine
-        // So to ensure pyrimidine is centered we need to reverse complement both ref and alt
-        Ok(self.reverse_complement())
+        // Flip Chemclass
+        match middle_chemclass {
+            ChemClass::Purine => Ok(self.reverse_complement()),
+            ChemClass::Pyrimidine => Ok(self.clone()),
+        }
     }
 }
 
@@ -415,21 +421,16 @@ pub enum TiTv {
 impl TiTv {
     /// Classify a substitution as a transition or transversion based on chemical class.
     ///
-    /// Returns:
-    /// - [`Some(TiTv::Transition)`] if both bases are certainly purines (A↔G) or both
-    ///   are certainly pyrimidines (C↔T)
-    /// - [`Some(TiTv::Transversion)`] if the substitution is purine↔pyrimidine
-    /// - `None` if either input class is ambiguous (e.g. derived from an ambiguous base)
-    ///
-    /// This conservative behavior matches the library philosophy: ambiguous inputs
-    /// should not be silently guessed.
-    pub fn from_chemical_class(reference: ChemClass, alternative: ChemClass) -> Option<TiTv> {
+    /// Purines -> Pyrimidine = Transversion
+    /// Pyrimidine -> Purine = Transversion
+    /// Purine -> Purine = Transition
+    /// Pyrimidine -> Pyrimidine = Transition
+    pub fn from_chemical_class(reference: ChemClass, alternative: ChemClass) -> TiTv {
         match (reference, alternative) {
-            (ChemClass::Purine, ChemClass::Purine) => Some(TiTv::Transition),
-            (ChemClass::Pyrimidine, ChemClass::Pyrimidine) => Some(TiTv::Transition),
-            (ChemClass::Purine, ChemClass::Pyrimidine) => Some(TiTv::Transversion),
-            (ChemClass::Pyrimidine, ChemClass::Purine) => Some(TiTv::Transversion),
-            _ => None, // If either chemical class is ambiguous, return None
+            (ChemClass::Purine, ChemClass::Purine) => TiTv::Transition,
+            (ChemClass::Pyrimidine, ChemClass::Pyrimidine) => TiTv::Transition,
+            (ChemClass::Purine, ChemClass::Pyrimidine) => TiTv::Transversion,
+            (ChemClass::Pyrimidine, ChemClass::Purine) => TiTv::Transversion,
         }
     }
 }
@@ -500,7 +501,7 @@ impl<B: Base> MutationWithContext<B> {
         let ctx = match self.context() {
             Some(ctx) => ctx,
             None => {
-                return Err(crate::error::Error::MutationMissingContext {
+                return Err(Error::MissingContext {
                     id: self.mutation.chrom_pos_ref_alt(),
                 });
             }
@@ -508,7 +509,9 @@ impl<B: Base> MutationWithContext<B> {
         let pos1 = ctx.anchor();
         let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
 
-        Region::new(pos1, pos2)
+        let region = Region::new(pos1, pos2)?;
+
+        Ok(region)
     }
 
     // pub fn mutate(&self) -> Seq<B> {}
@@ -676,35 +679,19 @@ mod tests {
     fn titv_from_chemical_class_transition_and_transversion() {
         assert_eq!(
             TiTv::from_chemical_class(ChemClass::Purine, ChemClass::Purine),
-            Some(TiTv::Transition)
+            TiTv::Transition
         );
         assert_eq!(
             TiTv::from_chemical_class(ChemClass::Pyrimidine, ChemClass::Pyrimidine),
-            Some(TiTv::Transition)
+            TiTv::Transition
         );
         assert_eq!(
             TiTv::from_chemical_class(ChemClass::Purine, ChemClass::Pyrimidine),
-            Some(TiTv::Transversion)
+            TiTv::Transversion
         );
         assert_eq!(
             TiTv::from_chemical_class(ChemClass::Pyrimidine, ChemClass::Purine),
-            Some(TiTv::Transversion)
-        );
-    }
-
-    #[test]
-    fn titv_from_chemical_class_ambiguous_returns_none() {
-        assert_eq!(
-            TiTv::from_chemical_class(ChemClass::Ambiguous, ChemClass::Purine),
-            None
-        );
-        assert_eq!(
-            TiTv::from_chemical_class(ChemClass::Pyrimidine, ChemClass::Ambiguous),
-            None
-        );
-        assert_eq!(
-            TiTv::from_chemical_class(ChemClass::Ambiguous, ChemClass::Ambiguous),
-            None
+            TiTv::Transversion
         );
     }
 

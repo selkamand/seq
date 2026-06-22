@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let sbs_pyrimidine_centered = match sbs.pyrimidine_center() {
+        let sbs_pyrimidine_centered = match sbs.try_pyrimidine_center() {
             Ok(s) => s,
             Err(err) => {
                 eprintln!(

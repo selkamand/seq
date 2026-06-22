@@ -3,9 +3,10 @@ use crate::base::{
     RnaBase,
 };
 use crate::coord::{Pos, Region};
-use crate::error::PalindromeErrorReason::{self};
-use crate::error::{Error, Result};
+use crate::error::SequenceError;
 use core::fmt;
+
+pub(crate) type Result<T> = std::result::Result<T, SequenceError>;
 
 /// A biological sequence with an associated alphabet (DNA/RNA).
 ///
@@ -366,7 +367,10 @@ impl<B: Base> Seq<B> {
         let middlebase = self.middlebase();
 
         match middlebase {
-            Some(base) => base.chemical_class().eq(&ChemClass::Pyrimidine),
+            Some(base) => base
+                .try_chemical_class()
+                .unwrap()
+                .eq(&ChemClass::Pyrimidine),
             None => false,
         }
     }
@@ -436,7 +440,7 @@ impl<B: Base> Seq<B> {
     /// ```
     pub fn slice(&self, start: usize, end: usize) -> Result<&[B]> {
         if start > end || end > self.len() {
-            return Err(Error::InvalidSlice {
+            return Err(SequenceError::InvalidSlice {
                 start,
                 end,
                 len: self.len(),
@@ -588,7 +592,7 @@ impl<B: Base> Seq<B> {
 
     pub fn mutate_in_place(&mut self, region: Region, new: &Seq<B>) -> Result<()> {
         if !self.is_region_valid(&region) {
-            return Err(Error::FailedMutateInvalidRegion {
+            return Err(SequenceError::FailedMutateInvalidRegion {
                 region,
                 seqlength: self.len(),
             });
@@ -712,7 +716,7 @@ impl<B: DegenerateBase> Seq<B> {
     ///    - Any IUPAC ambiguity code (e.g. `N`, `R`, `Y`, `S`, etc.) makes it
     ///      impossible to determine palindromicity with certainty, because such
     ///      symbols represent multiple possible concrete bases.
-    ///    - Sequences containing *any* ambiguous base always return an [`Error::PalindromeError`].
+    ///    - Sequences containing *any* ambiguous base always return an [`SequenceError::PalindromeError`].
     ///
     /// 2. **The sequence length is non-zero and even**
     ///    - Empty sequences are not considered palindromic.
@@ -743,9 +747,7 @@ impl<B: DegenerateBase> Seq<B> {
         let concrete_seq = match self.try_to_concrete() {
             Ok(c) => c,
             Err(_) => {
-                return Err(Error::PalindromeError(
-                    PalindromeErrorReason::AmbiguousBases,
-                ));
+                return Err(SequenceError::AmbiguousPalindrome);
             }
         };
 
@@ -769,7 +771,7 @@ impl<B: DegenerateBase> Seq<B> {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::CannotConvertDegenerateSequence`] if any base cannot be
+    /// Returns [`SequenceError::CannotConvertDegenerateSequence`] if any base cannot be
     /// represented in the concrete alphabet. The error reports the first ambiguous
     /// base encountered, using a 1-based sequence position.
     ///
@@ -795,12 +797,12 @@ impl<B: DegenerateBase> Seq<B> {
         let mut out = Vec::with_capacity(self.len());
 
         for (idx, base) in self.as_slice().iter().copied().enumerate() {
-            let concrete =
-                base.try_to_concrete()
-                    .ok_or_else(|| Error::CannotConvertDegenerateSequence {
-                        position: Pos::new(idx + 1).unwrap(),
-                        base: base.to_char(),
-                    })?;
+            let concrete = base.try_to_concrete().ok_or_else(|| {
+                SequenceError::CannotConvertDegenerateSequence {
+                    position: Pos::new(idx + 1).unwrap(),
+                    base: base.to_char(),
+                }
+            })?;
 
             out.push(concrete);
         }
@@ -1069,7 +1071,7 @@ mod tests {
         // start > end
         assert!(matches!(
             s.slice(3, 2),
-            Err(Error::InvalidSlice {
+            Err(SequenceError::InvalidSlice {
                 start: 3,
                 end: 2,
                 len: 4
@@ -1079,7 +1081,7 @@ mod tests {
         // end out of bounds
         assert!(matches!(
             s.slice(0, 10),
-            Err(Error::InvalidSlice {
+            Err(SequenceError::InvalidSlice {
                 start: 0,
                 end: 10,
                 len: 4

@@ -1,12 +1,12 @@
 use seqlib::coord::{Pos, Strand};
 use seqlib::{
     context::{self, Orientation},
-    error::Result,
     mutation::{MutationWithContext, SmallMutation},
 };
 use seqlib::{dna, pos};
+use std::error::Error;
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let mutation = SmallMutation::new(
         "chr1".to_owned(),
         pos!(2000),

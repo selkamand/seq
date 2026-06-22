@@ -79,19 +79,19 @@ pub enum MutationError {
     AmbiguousMiddleBase { base: char },
 }
 
-#[derive(thiserror::Error, Debug, PartialEq, Eq)]
-pub enum Error {
-    #[error(transparent)]
-    Base(#[from] BaseError),
+// #[derive(thiserror::Error, Debug, PartialEq, Eq)]
+// pub enum Error {
+//     #[error(transparent)]
+//     Base(#[from] BaseError),
+//
+//     #[error(transparent)]
+//     Coord(#[from] CoordError),
+//
+//     #[error(transparent)]
+//     Sequence(#[from] SequenceError),
+//
+//     #[error(transparent)]
+//     Mutation(#[from] MutationError),
+// }
 
-    #[error(transparent)]
-    Coord(#[from] CoordError),
-
-    #[error(transparent)]
-    Sequence(#[from] SequenceError),
-
-    #[error(transparent)]
-    Mutation(#[from] MutationError),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
+// pub type Result<T> = std::result::Result<T, Error>;

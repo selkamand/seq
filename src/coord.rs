@@ -1,6 +1,8 @@
 use const_panic::concat_panic;
 
-use crate::error::{Error, Result};
+use crate::error::CoordError as Error;
+pub(crate) type Result<T> = std::result::Result<T, Error>;
+
 use std::num::NonZeroUsize;
 
 /// A non-zero 1-based coordinate.

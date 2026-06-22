@@ -87,6 +87,7 @@ pub trait Base: Copy + Eq + fmt::Debug + fmt::Display {
     ///
     /// # Error
     /// Returns [`BaseError::AmbiguousChemicalClass`] if the chemical class is unclear
+    /// (happens when iupac base is ambiguous)
     fn try_chemical_class(self) -> Result<ChemClass, BaseError>;
 }
 

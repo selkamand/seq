@@ -26,6 +26,7 @@ pub enum SingleBaseSubstitutionError {
         "alternative base '{base}' is ambiguous so can NOT be represented as a single, concrete base"
     )]
     AmbiguousAlternative { base: char },
+
     #[error("Reference and alternative bases are identical ('{base}')")]
     IdenticalBases { base: char },
 }
@@ -86,16 +87,19 @@ impl<B: Base> SingleBaseSubstitution<B> {
     /// # Errors
     ///
     /// Returns [`SingleBaseSubstitutionError::AmbiguousReference`] if the reference base
-    /// does not have a certain purine/pyrimidine class.
-    pub fn pyrimidine_center(&self) -> Result<Self, SingleBaseSubstitutionError> {
-        match self.reference.chemical_class() {
+    /// has an ambiguous purine/pyrimidine class.
+    pub fn try_pyrimidine_center(&self) -> Result<Self, SingleBaseSubstitutionError> {
+        let reference = self.reference();
+
+        let Ok(reference_chemclass) = self.reference().try_chemical_class() else {
+            return Err(SingleBaseSubstitutionError::AmbiguousReference {
+                base: reference.to_char(),
+            });
+        };
+
+        match reference_chemclass {
             crate::base::ChemClass::Purine => Ok(self.reverse_complement()),
             crate::base::ChemClass::Pyrimidine => Ok(*self),
-            crate::base::ChemClass::Ambiguous => {
-                Err(SingleBaseSubstitutionError::AmbiguousReference {
-                    base: self.reference.to_char(),
-                })
-            }
         }
     }
 }
@@ -226,7 +230,7 @@ mod tests {
     #[test]
     fn pyrimidine_center_reverse_complements_purine_reference() {
         let sbs = DnaSingleBaseSubstitution::new(DnaBase::G, DnaBase::A).unwrap();
-        let centered = sbs.pyrimidine_center().unwrap();
+        let centered = sbs.try_pyrimidine_center().unwrap();
 
         assert_eq!(centered.reference(), &DnaBase::T);
         assert_eq!(centered.alternative(), &DnaBase::C);
