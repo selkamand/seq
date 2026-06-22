@@ -8,7 +8,7 @@
 //! you force ref and alt to be individual bases
 use crate::{
     base::{Base, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
-    mutation::{SmallMutation, SmallMutationType},
+    mutation::{SmallMutation, SmallMutationType, TiTv},
 };
 
 /// Error raised when the [`SmallMutation`] types cannot be narrowed to a concrete SBS.
@@ -169,7 +169,7 @@ fn ensure_snv<B: Base>(mutation: &SmallMutation<B>) -> Result<(), SingleBaseSubs
     }
 }
 
-// Mutation Specific methods for concrete base mutations
+/// Mutation Specific methods for concrete base mutations
 impl<B: ConcreteBase> SingleBaseSubstitution<B> {
     /// Ensure the reference base is a pyrimidine
     /// This is accomplished by reverse complementing the mutation if the reference base is not a pyrimidine.
@@ -178,6 +178,13 @@ impl<B: ConcreteBase> SingleBaseSubstitution<B> {
             crate::base::ChemClass::Purine => self.reverse_complement(),
             crate::base::ChemClass::Pyrimidine => *self,
         }
+    }
+    /// Identify whether mutation is a transition or a transversion
+    pub fn titv(&self) -> TiTv {
+        TiTv::from_chemical_class(
+            self.reference.chemical_class(),
+            self.alternative.chemical_class(),
+        )
     }
 }
 
