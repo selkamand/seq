@@ -6,6 +6,8 @@
 //! for mutational signature analysis is simpler if instead of having reference and alternative 'sequences'
 //! (vectors of bases).
 //! you force ref and alt to be individual bases
+use std::fmt::Display;
+
 use crate::{
     base::{Base, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     mutation::{SmallMutation, SmallMutationType, TiTv},
@@ -101,6 +103,13 @@ impl<B: Base> SingleBaseSubstitution<B> {
             crate::base::ChemClass::Purine => Ok(self.reverse_complement()),
             crate::base::ChemClass::Pyrimidine => Ok(*self),
         }
+    }
+}
+
+// Display
+impl<B: Base> Display for SingleBaseSubstitution<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} > {}", self.reference, self.alternative)
     }
 }
 
