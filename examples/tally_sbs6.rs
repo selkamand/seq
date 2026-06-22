@@ -1,6 +1,5 @@
 use seqlib::{
-    base::DnaBase, coord::Pos, dna, mutation::DnaSmallMutation, pos,
-    specialmuts::DnaSingleBaseSubstitution,
+    base::DnaBase, coord::Pos, dna, mutation::DnaSmallMutation, pos, sbs::DnaSingleBaseSubstitution,
 };
 
 #[derive(Debug, Default)]
