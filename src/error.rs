@@ -1,40 +1,29 @@
 use crate::{
     base::Alphabet,
     coord::{Pos, Region},
-    mutation::SmallMutation,
 };
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
-pub enum Error {
-    #[error(
-        "Invalid {alphabet} base: '{invalid}'. \
-         Allowed symbols are standard bases plus IUPAC ambiguity codes for {alphabet}."
-    )]
+pub enum BaseError {
+    #[error("invalid {alphabet} base: '{invalid}'")]
     InvalidCharacter { alphabet: Alphabet, invalid: char },
 
-    #[error(
-        "Invalid {alphabet} byte value: {invalid}. \
-         Expected an ASCII letter representing a nucleotide (e.g. A,C,G,T/U,N)."
-    )]
+    #[error("invalid {alphabet} byte value: {invalid}; expected an ASCII nucleotide symbol")]
     InvalidByte { alphabet: Alphabet, invalid: u8 },
 
-    #[error(
-        "Invalid subsequence coordinates: requested range [{start}, {end}) on a sequence of length {len}. \
-         Indices are 0-based and the end position is exclusive (like Rust slicing)."
-    )]
-    InvalidSlice {
-        start: usize,
-        end: usize,
-        len: usize,
-    },
+    #[error("base '{base}' has ambiguous chemical class")]
+    AmbiguousChemicalClass { base: char },
+}
 
-    #[error("Position must be 1-based so 0 is not a valid position")]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+pub enum CoordError {
+    #[error("position must be 1-based so 0 is not a valid position")]
     PositionIsZero,
 
-    #[error("position {value} cannot be represented on this platform. Max allowed position: {max}")]
+    #[error("position {value} cannot be represented on this platform; max allowed position: {max}")]
     PositionOverflowU64 { value: u64, max: Pos },
 
-    #[error("position {value} cannot be represented on this platform. Max allowed position: {max}")]
+    #[error("position {value} cannot be represented on this platform; max allowed position: {max}")]
     PositionOverflowU32 { value: u32, max: Pos },
 
     #[error("position underflow: {lhs} - {rhs} would be < 1")]
@@ -43,39 +32,66 @@ pub enum Error {
     #[error("position overflow: {lhs} + {rhs} would exceed {max}")]
     PositionOverflowAdd { lhs: Pos, rhs: usize, max: Pos },
 
-    #[error("End position of range: [end] cannot be less than start position [start]")]
+    #[error("end position of range cannot be less than start position")]
     RangeEndTooSmall { start: Pos, end: Pos },
+}
 
-    #[error("Mutation [{id}] does not have a sequence context")]
-    MutationMissingContext { id: String },
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+pub enum SequenceError {
+    #[error(transparent)]
+    InvalidBase(#[from] BaseError),
 
-    #[error("Can NOT mutate region: {region}. Spans beyond sequence ({seqlength} bases long")]
+    #[error(
+        "invalid subsequence coordinates: requested range [{start}, {end}) on a sequence of length {len}"
+    )]
+    InvalidSlice {
+        start: usize,
+        end: usize,
+        len: usize,
+    },
+
+    #[error("cannot mutate region: {region}; it spans beyond sequence length {seqlength}")]
     FailedMutateInvalidRegion { region: Region, seqlength: usize },
 
-    #[error("Can NOT determine palindrome: {0}")]
-    PalindromeError(PalindromeErrorReason),
+    #[error("cannot determine palindrome for a sequence containing ambiguous bases")]
+    AmbiguousPalindrome,
 
     #[error(
-        "Cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
+        "cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
     )]
     CannotConvertDegenerateSequence { position: Pos, base: char },
+}
+
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+pub enum MutationError {
+    #[error(transparent)]
+    Coord(#[from] CoordError),
+
+    #[error("mutation [{id}] does not have a sequence context")]
+    MissingContext { id: String },
+
+    #[error("cannot pyrimidine-center mutation because the reference sequence has no middle base")]
+    MissingMiddleBase,
 
     #[error(
-        "Cannot pyrmidine-center the mutation. Either sequence was either length or middlebase was a degenerate Iupac character (like N)"
+        "cannot pyrimidine-center mutation because middle base '{base}' has ambiguous chemical class"
     )]
-    InvalidMiddlebaseCannotPyrimidineCenter,
+    AmbiguousMiddleBase { base: char },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PalindromeErrorReason {
-    AmbiguousBases,
-}
-impl std::fmt::Display for PalindromeErrorReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PalindromeErrorReason::AmbiguousBases => write!(f, "AmbiguousBases"),
-        }
-    }
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+pub enum Error {
+    #[error(transparent)]
+    Base(#[from] BaseError),
+
+    #[error(transparent)]
+    Coord(#[from] CoordError),
+
+    #[error(transparent)]
+    Sequence(#[from] SequenceError),
+
+    #[error(transparent)]
+    Mutation(#[from] MutationError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

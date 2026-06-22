@@ -4,7 +4,7 @@
 
 use core::fmt;
 
-use crate::error::{Error, Result};
+use crate::error::BaseError;
 
 /// A minimal interface for “a single nucleotide symbol” (DNA, RNA, or a future alphabet).
 ///
@@ -70,7 +70,7 @@ pub trait Base: Copy + Eq + fmt::Debug + fmt::Display {
     /// - input must be ASCII (bytes 0–127)
     /// - parsing is case-insensitive (both `b'a'` and `b'A'` work)
     /// - invalid input returns a `SeqError` describing what went wrong
-    fn try_from_ascii(b: u8) -> Result<Self>;
+    fn try_from_ascii(b: u8) -> Result<Self, BaseError>;
 
     /// Returns `true` if this symbol can represent more than one concrete nucleotide.
     ///
@@ -83,52 +83,31 @@ pub trait Base: Copy + Eq + fmt::Debug + fmt::Display {
     /// unambiguous sequences.
     fn is_ambiguous(self) -> bool;
 
-    /// Classify the type of Base (Purine Vs Pyrimidine vs Uncertain)
-    fn chemical_class(self) -> ChemClass;
+    /// Classify the type of Base (Purine Vs Pyrimidine)
+    ///
+    /// # Error
+    /// Returns [`BaseError::AmbiguousChemicalClass`] if the chemical class is unclear
+    fn try_chemical_class(self) -> Result<ChemClass, BaseError>;
 }
 
-/// Chemical class of a nucleotide base with respect to purine/pyrimidine identity.
+/// Chemical class of a nucleotide base (purine/pyrimidine).
 ///
 /// This enum describes whether a base:
-/// - is **certainly** a purine,
-/// - is **certainly** a pyrimidine, or
-/// - is **ambiguous** with respect to chemical class.
-///
-/// ## Important semantics
-///
-/// `ChemClass::Ambiguous` does **not** mean “unknown” or “invalid”.
-/// It means the base represents **multiple possible concrete bases**
-/// that span *both* chemical classes.
+/// - is a purine,
+/// - is a pyrimidine
 ///
 /// Examples:
-/// - `R` (A or G) → `Purine`
-/// - `Y` (C or T/U) → `Pyrimidine`
-/// - `S` (C or G) → `Ambiguous`
-/// - `W` (A or T/U) → `Ambiguous`
-/// - `N` (any base) → `Ambiguous`
-///
-/// This classification is intended as a **guard rail** for downstream algorithms:
-/// callers can require a *certain* chemical class and explicitly reject
-/// ambiguous symbols rather than silently guessing.
-///
-/// ## Design note
-///
-/// For the supported DNA/RNA alphabets, every valid base is always either
-/// a purine or a pyrimidine at the concrete level. Therefore, ambiguity here
-/// only ever means “could be either”, never “neither”.
+/// - `A` / G` → `Purine`
+/// - `T` / `C` / `U`  → `Pyrimidine`
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ChemClass {
-    /// The base is certainly a purine (A or G, or ambiguity codes that
+    /// The base is a purine (A or G, or ambiguity codes that
     /// only expand to purines, e.g. `R`).
     Purine,
 
     /// The base is certainly a pyrimidine (C or T/U, or ambiguity codes that
     /// only expand to pyrimidines, e.g. `Y`).
     Pyrimidine,
-
-    /// The base is ambiguous with respect to chemical class and may represent
-    /// either a purine or a pyrimidine (e.g. `S`, `W`, `K`, `M`, `N`).
-    Ambiguous,
 }
 
 /// DNA nucleotide symbols including IUPAC ambiguity codes.
@@ -231,15 +210,15 @@ impl Base for IupacDnaBase {
         }
     }
 
-    fn try_from_ascii(b: u8) -> Result<Self> {
+    fn try_from_ascii(b: u8) -> Result<Self, BaseError> {
         if !b.is_ascii() {
-            return Err(Error::InvalidByte {
+            return Err(BaseError::InvalidByte {
                 alphabet: Self::ALPHABET,
                 invalid: b,
             });
         }
 
-        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+        Self::from_ascii_const(b).ok_or(BaseError::InvalidCharacter {
             alphabet: Self::ALPHABET,
             invalid: b as char,
         })
@@ -292,23 +271,41 @@ impl Base for IupacDnaBase {
         )
     }
 
-    fn chemical_class(self) -> ChemClass {
+    fn try_chemical_class(self) -> Result<ChemClass, BaseError> {
         match self {
-            IupacDnaBase::A => ChemClass::Purine,
-            IupacDnaBase::G => ChemClass::Purine,
-            IupacDnaBase::C => ChemClass::Pyrimidine,
-            IupacDnaBase::T => ChemClass::Pyrimidine,
-            IupacDnaBase::N => ChemClass::Ambiguous,
-            IupacDnaBase::R => ChemClass::Purine,
-            IupacDnaBase::Y => ChemClass::Pyrimidine,
-            IupacDnaBase::S => ChemClass::Ambiguous,
-            IupacDnaBase::W => ChemClass::Ambiguous,
-            IupacDnaBase::K => ChemClass::Ambiguous,
-            IupacDnaBase::M => ChemClass::Ambiguous,
-            IupacDnaBase::B => ChemClass::Ambiguous,
-            IupacDnaBase::D => ChemClass::Ambiguous,
-            IupacDnaBase::H => ChemClass::Ambiguous,
-            IupacDnaBase::V => ChemClass::Ambiguous,
+            IupacDnaBase::A => Ok(ChemClass::Purine),
+            IupacDnaBase::G => Ok(ChemClass::Purine),
+            IupacDnaBase::C => Ok(ChemClass::Pyrimidine),
+            IupacDnaBase::T => Ok(ChemClass::Pyrimidine),
+            IupacDnaBase::R => Ok(ChemClass::Purine),
+            IupacDnaBase::Y => Ok(ChemClass::Pyrimidine),
+            IupacDnaBase::N => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::N.to_char(),
+            }),
+            IupacDnaBase::S => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::S.to_char(),
+            }),
+            IupacDnaBase::W => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::W.to_char(),
+            }),
+            IupacDnaBase::K => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::K.to_char(),
+            }),
+            IupacDnaBase::M => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::M.to_char(),
+            }),
+            IupacDnaBase::B => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::B.to_char(),
+            }),
+            IupacDnaBase::D => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::D.to_char(),
+            }),
+            IupacDnaBase::H => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::H.to_char(),
+            }),
+            IupacDnaBase::V => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacDnaBase::V.to_char(),
+            }),
         }
     }
 }
@@ -351,15 +348,15 @@ impl Base for DnaBase {
         }
     }
 
-    fn try_from_ascii(b: u8) -> Result<Self> {
+    fn try_from_ascii(b: u8) -> Result<Self, BaseError> {
         if !b.is_ascii() {
-            return Err(Error::InvalidByte {
+            return Err(BaseError::InvalidByte {
                 alphabet: Self::ALPHABET,
                 invalid: b,
             });
         }
 
-        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+        Self::from_ascii_const(b).ok_or(BaseError::InvalidCharacter {
             alphabet: Self::ALPHABET,
             invalid: b as char,
         })
@@ -387,12 +384,12 @@ impl Base for DnaBase {
         false
     }
 
-    fn chemical_class(self) -> ChemClass {
+    fn try_chemical_class(self) -> Result<ChemClass, BaseError> {
         match self {
-            DnaBase::A => ChemClass::Purine,
-            DnaBase::G => ChemClass::Purine,
-            DnaBase::C => ChemClass::Pyrimidine,
-            DnaBase::T => ChemClass::Pyrimidine,
+            DnaBase::A => Ok(ChemClass::Purine),
+            DnaBase::G => Ok(ChemClass::Purine),
+            DnaBase::C => Ok(ChemClass::Pyrimidine),
+            DnaBase::T => Ok(ChemClass::Pyrimidine),
         }
     }
 }
@@ -491,15 +488,15 @@ impl RnaBase {
 impl Base for RnaBase {
     const ALPHABET: Alphabet = Alphabet::RNA;
 
-    fn try_from_ascii(b: u8) -> Result<Self> {
+    fn try_from_ascii(b: u8) -> Result<Self, BaseError> {
         if !b.is_ascii() {
-            return Err(Error::InvalidByte {
+            return Err(BaseError::InvalidByte {
                 alphabet: Self::ALPHABET,
                 invalid: b,
             });
         }
 
-        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+        Self::from_ascii_const(b).ok_or(BaseError::InvalidCharacter {
             alphabet: Self::ALPHABET,
             invalid: b as char,
         })
@@ -536,12 +533,12 @@ impl Base for RnaBase {
         false
     }
 
-    fn chemical_class(self) -> ChemClass {
+    fn try_chemical_class(self) -> Result<ChemClass, BaseError> {
         match self {
-            RnaBase::A => ChemClass::Purine,
-            RnaBase::G => ChemClass::Purine,
-            RnaBase::C => ChemClass::Pyrimidine,
-            RnaBase::U => ChemClass::Pyrimidine,
+            RnaBase::A => Ok(ChemClass::Purine),
+            RnaBase::G => Ok(ChemClass::Purine),
+            RnaBase::C => Ok(ChemClass::Pyrimidine),
+            RnaBase::U => Ok(ChemClass::Pyrimidine),
         }
     }
 
@@ -557,15 +554,15 @@ impl Base for RnaBase {
 impl Base for IupacRnaBase {
     const ALPHABET: Alphabet = Alphabet::RNA;
 
-    fn try_from_ascii(b: u8) -> Result<Self> {
+    fn try_from_ascii(b: u8) -> Result<Self, BaseError> {
         if !b.is_ascii() {
-            return Err(Error::InvalidByte {
+            return Err(BaseError::InvalidByte {
                 alphabet: Self::ALPHABET,
                 invalid: b,
             });
         }
 
-        Self::from_ascii_const(b).ok_or(Error::InvalidCharacter {
+        Self::from_ascii_const(b).ok_or(BaseError::InvalidCharacter {
             alphabet: Self::ALPHABET,
             invalid: b as char,
         })
@@ -638,23 +635,41 @@ impl Base for IupacRnaBase {
         )
     }
 
-    fn chemical_class(self) -> ChemClass {
+    fn try_chemical_class(self) -> Result<ChemClass, BaseError> {
         match self {
-            IupacRnaBase::A => ChemClass::Purine,
-            IupacRnaBase::G => ChemClass::Purine,
-            IupacRnaBase::C => ChemClass::Pyrimidine,
-            IupacRnaBase::U => ChemClass::Pyrimidine,
-            IupacRnaBase::N => ChemClass::Ambiguous,
-            IupacRnaBase::R => ChemClass::Purine,
-            IupacRnaBase::Y => ChemClass::Pyrimidine,
-            IupacRnaBase::S => ChemClass::Ambiguous,
-            IupacRnaBase::W => ChemClass::Ambiguous,
-            IupacRnaBase::K => ChemClass::Ambiguous,
-            IupacRnaBase::M => ChemClass::Ambiguous,
-            IupacRnaBase::B => ChemClass::Ambiguous,
-            IupacRnaBase::D => ChemClass::Ambiguous,
-            IupacRnaBase::H => ChemClass::Ambiguous,
-            IupacRnaBase::V => ChemClass::Ambiguous,
+            IupacRnaBase::A => Ok(ChemClass::Purine),
+            IupacRnaBase::G => Ok(ChemClass::Purine),
+            IupacRnaBase::C => Ok(ChemClass::Pyrimidine),
+            IupacRnaBase::U => Ok(ChemClass::Pyrimidine),
+            IupacRnaBase::R => Ok(ChemClass::Purine),
+            IupacRnaBase::Y => Ok(ChemClass::Pyrimidine),
+            IupacRnaBase::N => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::N.to_char(),
+            }),
+            IupacRnaBase::S => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::S.to_char(),
+            }),
+            IupacRnaBase::W => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::W.to_char(),
+            }),
+            IupacRnaBase::K => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::K.to_char(),
+            }),
+            IupacRnaBase::M => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::M.to_char(),
+            }),
+            IupacRnaBase::B => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::B.to_char(),
+            }),
+            IupacRnaBase::D => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::D.to_char(),
+            }),
+            IupacRnaBase::H => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::H.to_char(),
+            }),
+            IupacRnaBase::V => Err(BaseError::AmbiguousChemicalClass {
+                base: IupacRnaBase::V.to_char(),
+            }),
         }
     }
 }
@@ -667,12 +682,15 @@ impl Base for IupacRnaBase {
 /// For example, `DnaBase` values are limited to `A`, `C`, `G`, and `T`, and
 /// `RnaBase` values are limited to `A`, `C`, `G`, and `U`.
 ///
-/// This trait lets `Seq<B>` provide infallible methods for operations that are
-/// unambiguous by construction, such as `is_palindromic() -> bool`.
+/// This trait lets ConcreteBase classes and Sequences of concrete bases provide infallible methods for
+/// operations that are forced to be fallable in Base trait because of the possibility of ambiguous bases
+/// such as chemical_class_concrete() or `is_palindromic() -> bool`.
 ///
 /// This is a type-level guarantee: if `B: ConcreteBase`, then no runtime
 /// ambiguity check is required.
-pub trait ConcreteBase: Base {}
+pub trait ConcreteBase: Base {
+    fn chemical_class(&self) -> ChemClass;
+}
 
 /// Marker trait for nucleotide base types whose alphabet may include
 /// degenerate or ambiguous symbols.
@@ -697,8 +715,26 @@ pub trait DegenerateBase: Base {
     fn try_to_concrete(self) -> Option<Self::ConcreteEquivalent>;
 }
 
-impl ConcreteBase for DnaBase {}
-impl ConcreteBase for RnaBase {}
+impl ConcreteBase for DnaBase {
+    fn chemical_class(&self) -> ChemClass {
+        match self {
+            DnaBase::A => ChemClass::Purine,
+            DnaBase::G => ChemClass::Purine,
+            DnaBase::C => ChemClass::Pyrimidine,
+            DnaBase::T => ChemClass::Pyrimidine,
+        }
+    }
+}
+impl ConcreteBase for RnaBase {
+    fn chemical_class(&self) -> ChemClass {
+        match self {
+            RnaBase::A => ChemClass::Purine,
+            RnaBase::G => ChemClass::Purine,
+            RnaBase::U => ChemClass::Pyrimidine,
+            RnaBase::C => ChemClass::Pyrimidine,
+        }
+    }
+}
 impl DegenerateBase for IupacRnaBase {
     type ConcreteEquivalent = RnaBase;
 
