@@ -8,7 +8,8 @@ use crate::sequences::Seq;
 /// A sequence that originates from some other source like a reference genome / transcriptome or
 /// another sequence.
 ///
-/// Describes the sequence itself ([`Seq`]), and the [`Region`] and [`Strand`] of the original sequence which contained the sequence
+/// Describes the sequence itself ([`Seq`]), and the [`Region`] and [`Strand`] of the original sequence which contained the sequence.
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourcedSeq<B: Base> {
     /// The sequence sourced from some other source
@@ -60,12 +61,42 @@ impl<B: Base> SourcedSeq<B> {
     }
 
     /// Returns the source [`Region`] this sequence came from.
+    /// Always given in the forward orientation, so to actually get the [`seq()`] from
+    /// the original sequence, check [`strand()`] to figure out whether the original sequence was
+    /// reverse complemented
     pub fn region(&self) -> &Region {
         &self.region
     }
 
-    /// Returns the [`Strand`] this sequence originated from, if known.
+    /// Returns the [`Strand`] this sequence originated from if sequence originates from a double stranded
+    /// molecule.
     pub fn strand(&self) -> Option<Strand> {
         self.strand
+    }
+
+    /// Return a new SourcedSeq representing the reverse complement.
+    ///
+    /// Reverse complements the [`SourcedSeq::seq()`] and flips the strand.
+    /// [`SourcedSeq::region()`] is intentionally left unchanged.
+    pub fn reverse_complement(&self) -> Self {
+        Self {
+            seq: self.seq().reverse_complement(),
+            region: self.region().to_owned(),
+            strand: self.strand().map(|s| s.flip()),
+        }
+    }
+
+    /// Reverse Complements the SourcedSeq in place
+    ///
+    /// Reverse complements the [`SourcedSeq::seq()`] and flips the strand.
+    /// [`SourcedSeq::region()`] is intentionally left unchanged.
+    pub fn reverse_complement_in_place(&mut self) {
+        // Reverse complement in place
+        self.seq.reverse_complement_in_place();
+
+        // Flip strand
+        if let Some(unwrapped_strand) = self.strand {
+            self.strand = Some(unwrapped_strand.flip())
+        };
     }
 }
