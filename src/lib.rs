@@ -16,7 +16,7 @@
 //!
 //! ## Module overview
 //!
-//! - [`sequence`] — validated DNA/RNA sequences and core transformations
+//! - [`sequences`] — validated DNA/RNA sequences and core transformations
 //! - [`base`] — nucleotide alphabets
 //! - [`context`] — reference sequence windows around mutations
 //! - [`mutation`] — small variants and mutation metadata
