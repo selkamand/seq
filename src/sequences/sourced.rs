@@ -10,7 +10,7 @@ use crate::sequences::Seq;
 ///
 /// Describes the sequence itself ([`Seq`]), and the [`Region`] and [`Strand`] of the original sequence which contained the sequence
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourcedSequence<B: Base> {
+pub struct SourcedSeq<B: Base> {
     /// The sequence sourced from some other source
     seq: Seq<B>,
 
@@ -21,7 +21,7 @@ pub struct SourcedSequence<B: Base> {
     strand: Option<Strand>,
 }
 
-impl<B: Base> std::fmt::Display for SourcedSequence<B> {
+impl<B: Base> std::fmt::Display for SourcedSeq<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO: sequences can be quite long so we actually want a pretty print (where for long
         //sequences we just print the first 20 or so bases then add elipses). I think we should add
@@ -38,8 +38,8 @@ impl<B: Base> std::fmt::Display for SourcedSequence<B> {
     }
 }
 
-impl<B: Base> SourcedSequence<B> {
-    /// Create a new [`SourcedSequence`] object representing a sequence originating from some other
+impl<B: Base> SourcedSeq<B> {
+    /// Create a new [`SourcedSeq`] object representing a sequence originating from some other
     /// source (e.g. a reference genome / transcriptome / other sequence).
     ///
     pub fn new<S, R, P>(seq: S, region: R, strand: Option<Strand>) -> Self
