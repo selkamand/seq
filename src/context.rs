@@ -50,7 +50,7 @@
 //! This separation keeps `seqlib` focused on **correct representation and safe
 //! manipulation** of biological sequences.
 
-use crate::{base::Base, coord::Pos, sequence::Seq};
+use crate::{base::Base, coords::Pos, sequences::Seq};
 
 /// A reference context window fetched around a mutation.
 ///
@@ -208,7 +208,7 @@ impl<B: Base> ContextWindow<B> {
     /// - No strand normalization or reverse-complementing is applied
     /// - The returned slice is borrowed; no allocation or copying occurs
     pub fn kmer_centered_on_anchor(&self, k: usize) -> Option<&[B]> {
-        if k == 0 || k % 2 == 0 {
+        if k == 0 || k.is_multiple_of(2) {
             return None;
         }
         let center = self.anchor_index0()?;

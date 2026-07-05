@@ -1,4 +1,4 @@
-use seqlib::sequence::{DnaSeq, IupacDnaSeq};
+use seqlib::sequences::{DnaSeq, IupacDnaSeq};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let palindrome = DnaSeq::new("GAATTC")?;

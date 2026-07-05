@@ -16,11 +16,11 @@
 //!
 //! ## Module overview
 //!
-//! - [`sequence`] — validated DNA/RNA sequences and core transformations
+//! - [`sequences`] — validated DNA/RNA sequences and core transformations
 //! - [`base`] — nucleotide alphabets
 //! - [`context`] — reference sequence windows around mutations
 //! - [`mutation`] — small variants and mutation metadata
-//! - [`coord`] — safe 1-based biological coordinates
+//! - [`coords`] — safe 1-based biological coordinates
 //!
 //! ## What this crate does *not* do
 //!
@@ -32,8 +32,8 @@
 
 pub mod base;
 pub mod context;
-pub mod coord;
+pub mod coords;
 pub mod error;
 pub mod mutation;
 pub mod sbs;
-pub mod sequence;
+pub mod sequences;

@@ -1,5 +1,5 @@
 use seqlib::base::Base;
-use seqlib::sequence::IupacDnaSeq;
+use seqlib::sequences::IupacDnaSeq;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let seq = IupacDnaSeq::new("ACGT")?;

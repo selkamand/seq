@@ -3,9 +3,9 @@ use core::fmt;
 use crate::{
     base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
     context::ContextWindow,
-    coord::{Pos, Region, Strand},
+    coords::{Interval, Pos, Strand},
     error::MutationError as Error,
-    sequence::Seq,
+    sequences::Seq,
 };
 
 pub(crate) type Result<T> = std::result::Result<T, Error>;
@@ -287,8 +287,8 @@ impl<B: Base> SmallMutation<B> {
     ///
     /// ```rust
     /// use seqlib::mutation::DnaSmallMutation;
-    /// use seqlib::sequence::DnaSeq;
-    /// use seqlib::coord::{Pos, Strand};
+    /// use seqlib::sequences::DnaSeq;
+    /// use seqlib::coords::{Pos, Strand};
     ///
     /// let m = DnaSmallMutation::new(
     ///     "chr1".to_string(),
@@ -496,8 +496,8 @@ impl<B: Base> MutationWithContext<B> {
         self.context.as_ref()?.kmer_centered_on_anchor(5)
     }
 
-    /// Get the region of context affected by the mutation
-    pub fn mutated_region(&self) -> Result<Region> {
+    /// Get the interval of context affected by the mutation
+    pub fn mutated_interval(&self) -> Result<Interval> {
         let ctx = match self.context() {
             Some(ctx) => ctx,
             None => {
@@ -509,9 +509,9 @@ impl<B: Base> MutationWithContext<B> {
         let pos1 = ctx.anchor();
         let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
 
-        let region = Region::new(pos1, pos2)?;
+        let interval = Interval::new(pos1, pos2)?;
 
-        Ok(region)
+        Ok(interval)
     }
 
     // pub fn mutate(&self) -> Seq<B> {}
@@ -528,13 +528,13 @@ impl<B: Base> MutationWithContext<B> {
         };
 
         let seq = ctx.seq();
-        let region = Region::new(
+        let interval = Interval::new(
             ctx.anchor(),
             ctx.anchor().saturating_add(self.mutation().reflen()),
         );
 
-        let refstring = if let Ok(region) = self.mutated_region() {
-            ctx.seq().format_with_highlight_region(Some(&region))
+        let refstring = if let Ok(interval) = self.mutated_interval() {
+            ctx.seq().format_with_highlight_interval(Some(&interval))
         } else {
             ctx.seq()
                 .format_with_highlight_pos(Some(self.mutation().position()))
@@ -548,7 +548,7 @@ impl<B: Base> MutationWithContext<B> {
 mod tests {
     use super::*;
     use crate::base::{ChemClass, IupacDnaBase, IupacRnaBase};
-    use crate::sequence::Seq;
+    use crate::sequences::Seq;
 
     // --- Helpers ---
 
