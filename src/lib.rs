@@ -20,7 +20,7 @@
 //! - [`base`] — nucleotide alphabets
 //! - [`context`] — reference sequence windows around mutations
 //! - [`mutation`] — small variants and mutation metadata
-//! - [`coord`] — safe 1-based biological coordinates
+//! - [`coords`] — safe 1-based biological coordinates
 //!
 //! ## What this crate does *not* do
 //!
