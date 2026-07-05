@@ -2,7 +2,7 @@ use crate::base::{
     Alphabet, Base, ChemClass, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase,
     RnaBase,
 };
-use crate::coord::{Pos, Region};
+use crate::coords::{Interval, Pos};
 use crate::error::SequenceError;
 use core::fmt;
 
@@ -335,11 +335,11 @@ impl<B: Base> Seq<B> {
         Pos::new(self.len()).unwrap_or_default()
     }
 
-    /// Does region span a range that exists in this sequence. If sequence is empty no regions are valid
-    pub fn is_region_valid(&self, region: &Region) -> bool {
+    /// Does interval span a range that exists in this sequence. If sequence is empty no intervals are valid
+    pub fn is_interval_valid(&self, interval: &Interval) -> bool {
         match self.is_empty() {
             true => false,
-            false => region.end() < self.max_pos(),
+            false => interval.end() < self.max_pos(),
         }
     }
 
@@ -450,45 +450,45 @@ impl<B: Base> Seq<B> {
         Ok(&self.seq[start..end])
     }
 
-    /// Returns a borrowed view of the subsequence defined by a [`Region`].
+    /// Returns a borrowed view of the subsequence defined by a [`Interval`].
     ///
     /// This method is the biologist-facing counterpart to [`Seq::slice`].
-    /// It interprets `region` using the coordinate contract of [`Region`]
+    /// It interprets `interval` using the coordinate contract of [`Interval`]
     /// (1-based coordinates with **both ends included**) and returns a
     /// **read-only, zero-copy** view into the sequence.
     ///
     /// The returned slice:
-    /// - contains exactly the bases covered by the region
+    /// - contains exactly the bases covered by the interval
     /// - does **not** allocate or copy
     /// - is tied to the lifetime of the original sequence
     ///
     /// # Errors
     ///
-    /// Returns an error if the region falls outside the bounds of the sequence.
+    /// Returns an error if the interval falls outside the bounds of the sequence.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coord::{Pos, Region}, sequence::{BaseSliceExt, DnaSeq}};
+    /// use seqlib::{coords::{Pos, Interval}, sequence::{BaseSliceExt, DnaSeq}};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
-    /// let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
+    /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
     ///
-    /// let slice = seq.subseq_slice(&region).unwrap();
+    /// let slice = seq.subseq_slice(&interval).unwrap();
     /// assert_eq!(slice.to_string_upper(), "CGT");
     /// ```
-    pub fn subseq_slice(&self, region: &Region) -> Result<&[B]> {
-        // Convert Region (1-based inclusive) to Rust indices (0-based, end-exclusive).
-        let start = region.start().as_0based_index();
-        let end_exclusive = region.end().as_0based_index() + 1;
+    pub fn subseq_slice(&self, interval: &Interval) -> Result<&[B]> {
+        // Convert interval (1-based inclusive) to Rust indices (0-based, end-exclusive).
+        let start = interval.start().as_0based_index();
+        let end_exclusive = interval.end().as_0based_index() + 1;
 
         self.slice(start, end_exclusive)
     }
 
-    /// Extracts a subsequence defined by a [`Region`] as a new, independent [`Seq`].
+    /// Extracts a subsequence defined by an [`Interval`] as a new, independent [`Seq`].
     ///
     /// This is the classic “subsequence” operation for biologists:
-    /// - `region` uses the coordinate contract of [`Region`]
+    /// - `interval` uses the coordinate contract of [`Interval`]
     ///   (1-based coordinates with **both ends included**)
     /// - the result is an **owned** `Seq<B>` that does not borrow from the original
     ///
@@ -498,22 +498,22 @@ impl<B: Base> Seq<B> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the region falls outside the bounds of the sequence.
+    /// Returns an error if the interval falls outside the bounds of the sequence.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coord::{Pos, Region}, sequence::DnaSeq};
+    /// use seqlib::{coord::{Pos, Interval}, sequence::DnaSeq};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
-    /// let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
+    /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
     ///
-    /// let sub = seq.subseq(&region).unwrap();
+    /// let sub = seq.subseq(&interval).unwrap();
     /// assert_eq!(sub.to_string(), "CGT");
     /// assert_eq!(seq.to_string(), "ACGTAC"); // original unchanged
     /// ```
-    pub fn subseq(&self, region: &Region) -> Result<Seq<B>> {
-        let slice = self.subseq_slice(region)?;
+    pub fn subseq(&self, interval: &Interval) -> Result<Seq<B>> {
+        let slice = self.subseq_slice(interval)?;
         Ok(Seq {
             seq: slice.to_vec(),
         })
@@ -561,10 +561,10 @@ impl<B: Base> Seq<B> {
         self.format_with_highlight_index(idx)
     }
 
-    /// Highlight a series of bases using a region. If region end falls outside of sequence length
+    /// Highlight a series of bases using a interval. If interval end falls outside of sequence length
     /// it will be annotated with ]>EndPosition
-    pub fn format_with_highlight_region(&self, region: Option<&Region>) -> String {
-        if let Some(reg) = region {
+    pub fn format_with_highlight_interval(&self, interval: Option<&Interval>) -> String {
+        if let Some(reg) = interval {
             let (start, end) = reg.as_0based_indices();
             let mut s = self.to_string();
 
@@ -583,23 +583,23 @@ impl<B: Base> Seq<B> {
         }
     }
 
-    pub fn mutate(&mut self, region: Region, new: &Seq<B>) -> Result<Self> {
+    pub fn mutate(&mut self, interval: Interval, new: &Seq<B>) -> Result<Self> {
         let mut cloned_seq = self.clone();
-        cloned_seq.mutate_in_place(region, new)?;
+        cloned_seq.mutate_in_place(interval, new)?;
 
         Ok(cloned_seq)
     }
 
-    pub fn mutate_in_place(&mut self, region: Region, new: &Seq<B>) -> Result<()> {
-        if !self.is_region_valid(&region) {
-            return Err(SequenceError::FailedMutateInvalidRegion {
-                region,
+    pub fn mutate_in_place(&mut self, interval: Interval, new: &Seq<B>) -> Result<()> {
+        if !self.is_interval_valid(&interval) {
+            return Err(SequenceError::FailedMutateInvalidInterval {
+                interval,
                 seqlength: self.len(),
             });
         }
 
-        let start = region.start().as_0based_index();
-        let end = region.end().get();
+        let start = interval.start().as_0based_index();
+        let end = interval.end().get();
 
         // Replace range with expected values
         self.seq.splice(start..end, new.as_slice().iter().cloned());
@@ -1090,31 +1090,31 @@ mod tests {
     }
 
     #[test]
-    fn subseq_slice_by_region_returns_expected_view_inclusive_1based() {
+    fn subseq_slice_by_interval_returns_expected_view_inclusive_1based() {
         let s = dna("ACGTAC");
 
-        // Region is 1-based inclusive: 2..=4 => C,G,T
-        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
-        let view = s.subseq_slice(&region).unwrap();
+        // Interval is 1-based inclusive: 2..=4 => C,G,T
+        let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let view = s.subseq_slice(&interval).unwrap();
         assert_eq!(view.to_string_upper(), "CGT");
 
         // single base: 1..=1 => A
-        let r1 = Region::new(Pos::new(1).unwrap(), Pos::new(1).unwrap()).unwrap();
+        let r1 = Interval::new(Pos::new(1).unwrap(), Pos::new(1).unwrap()).unwrap();
         let one = s.subseq_slice(&r1).unwrap();
         assert_eq!(one.to_string_upper(), "A");
 
         // last base: 6..=6 => C
-        let rlast = Region::new(Pos::new(6).unwrap(), Pos::new(6).unwrap()).unwrap();
+        let rlast = Interval::new(Pos::new(6).unwrap(), Pos::new(6).unwrap()).unwrap();
         let last = s.subseq_slice(&rlast).unwrap();
         assert_eq!(last.to_string_upper(), "C");
     }
 
     #[test]
-    fn subseq_by_region_returns_expected_owned_seq_and_does_not_modify_original() {
+    fn subseq_by_interval_returns_expected_owned_seq_and_does_not_modify_original() {
         let s = dna("ACGTAC");
-        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
 
-        let sub = s.subseq(&region).unwrap();
+        let sub = s.subseq(&interval).unwrap();
         assert_eq!(sub.to_string_upper(), "CGT");
 
         // original unchanged
@@ -1124,9 +1124,9 @@ mod tests {
     #[test]
     fn subseq_owned_is_independent_of_original() {
         let s = dna("ACGTAC");
-        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
 
-        let mut sub = s.subseq(&region).unwrap();
+        let mut sub = s.subseq(&interval).unwrap();
         sub.rev_in_place();
 
         // subseq changed
@@ -1139,35 +1139,35 @@ mod tests {
     #[test]
     fn subseq_and_subseq_slice_agree_on_content() {
         let s = dna("ACGTAC");
-        let region = Region::new(Pos::new(2).unwrap(), Pos::new(5).unwrap()).unwrap(); // 2..=5 => CGTA
+        let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(5).unwrap()).unwrap(); // 2..=5 => CGTA
 
-        let view = s.subseq_slice(&region).unwrap();
-        let owned = s.subseq(&region).unwrap();
+        let view = s.subseq_slice(&interval).unwrap();
+        let owned = s.subseq(&interval).unwrap();
 
         assert_eq!(view.to_string_upper(), owned.to_string_upper());
     }
 
     #[test]
-    fn subseq_slice_errors_when_region_out_of_bounds() {
+    fn subseq_slice_errors_when_interval_out_of_bounds() {
         let s = dna("ACGTAC");
 
-        // End beyond sequence length (len=6). Region 1..=7 should fail.
-        let region = Region::new(Pos::new(1).unwrap(), Pos::new(7).unwrap()).unwrap();
-        assert!(s.subseq_slice(&region).is_err());
-        assert!(s.subseq(&region).is_err());
+        // End beyond sequence length (len=6). Interval 1..=7 should fail.
+        let interval = Interval::new(Pos::new(1).unwrap(), Pos::new(7).unwrap()).unwrap();
+        assert!(s.subseq_slice(&interval).is_err());
+        assert!(s.subseq(&interval).is_err());
     }
 
     #[test]
     fn subseq_methods_work_for_rna_too() {
         let s = rna("ACGUAC"); // length 6
 
-        // Region 2..=4 => C,G,U
-        let region = Region::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
+        // Interval 2..=4 => C,G,U
+        let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap();
 
-        let view = s.subseq_slice(&region).unwrap();
+        let view = s.subseq_slice(&interval).unwrap();
         assert_eq!(view.to_string_upper(), "CGU");
 
-        let owned = s.subseq(&region).unwrap();
+        let owned = s.subseq(&interval).unwrap();
         assert_eq!(owned.to_string_upper(), "CGU");
 
         // Rust slice 1..4 => C,G,U

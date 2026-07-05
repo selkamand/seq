@@ -1,3 +1,4 @@
+//! Definition of a Position (Pos) struct. Is 1-based and non-zero (enforced by typesystem).
 use const_panic::concat_panic;
 
 use crate::error::CoordError as Error;
@@ -197,105 +198,6 @@ impl TryFrom<u32> for Pos {
     }
 }
 
-/// A genomic interval
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Region {
-    start: Pos,
-    end: Pos,
-}
-
-impl std::fmt::Display for Region {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}", self.start, self.end)
-    }
-}
-
-impl Region {
-    /// Create a new region (1-based inclusive)
-    pub fn new(start: Pos, end: Pos) -> Result<Self> {
-        if end < start {
-            return Err(Error::RangeEndTooSmall { start, end });
-        }
-        Ok(Self { start, end })
-    }
-
-    /// Get start position
-    pub fn start(&self) -> Pos {
-        self.start
-    }
-
-    /// Get end position
-    pub fn end(&self) -> Pos {
-        self.end
-    }
-
-    /// Check if region is empty. Always returns false as regions are never empty, by definition they contain at least 1 base)
-    pub fn is_empty(&self) -> bool {
-        false
-    }
-
-    /// Length of region (number of bases they span)
-    pub fn len(&self) -> usize {
-        self.end
-            .get()
-            .saturating_sub(self.start.get())
-            .saturating_add(1)
-    }
-
-    /// Get region as 0-based indices for easier extractions of sequence slices
-    pub fn as_0based_indices(&self) -> (usize, usize) {
-        (self.start.as_0based_index(), self.end.as_0based_index() + 1)
-    }
-}
-
-impl Default for Region {
-    fn default() -> Self {
-        Self {
-            start: Pos::MIN,
-            end: Pos::MIN,
-        }
-    }
-}
-
-// TODO: Think through strategy around orientations. Are they Sequence level, Mutation level, or
-// only relevant for MutationWithContext Objects (which are currently the only orientation aware
-// processes). See Orientation enum of contexts module
-// /// Strand
-
-/// The strand. Exactly what this enum means
-/// can depend on the context.
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-pub enum Strand {
-    /// The positive strand (`+`).
-    ///
-    /// In some contexts called the _sense_ or _forward_ strand.
-    Positive,
-    /// The negative strand (`-`).
-    ///
-    /// In some contexts described as the _antisense_ or _reverse_ strand.
-    Negative,
-}
-
-impl std::fmt::Display for Strand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Strand::Positive => write!(f, "+"),
-            Strand::Negative => write!(f, "-"),
-        }
-    }
-}
-
-impl Strand {
-    /// Flip strand from Positive to Negative or Negative to Positive
-    pub fn flip(&self) -> Self {
-        match self {
-            Strand::Positive => Strand::Negative,
-            Strand::Negative => Strand::Positive,
-        }
-    }
-}
-
-///
 /// Construct a [`Pos`] from a **compile-time** integer literal.
 ///
 /// This macro is intended for constant contexts and test code where the position

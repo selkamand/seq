@@ -1,4 +1,4 @@
-use seqlib::coord::{Pos, Strand};
+use seqlib::coords::{Pos, Strand};
 use seqlib::{
     context::{self, Orientation},
     mutation::{MutationWithContext, SmallMutation},

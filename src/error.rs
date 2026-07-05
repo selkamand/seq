@@ -1,6 +1,6 @@
 use crate::{
     base::Alphabet,
-    coord::{Pos, Region},
+    coords::{Interval, Pos},
 };
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -50,8 +50,11 @@ pub enum SequenceError {
         len: usize,
     },
 
-    #[error("cannot mutate region: {region}; it spans beyond sequence length {seqlength}")]
-    FailedMutateInvalidRegion { region: Region, seqlength: usize },
+    #[error("cannot mutate interval: {interval}; it spans beyond sequence length {seqlength}")]
+    FailedMutateInvalidInterval {
+        interval: Interval,
+        seqlength: usize,
+    },
 
     #[error("cannot determine palindrome for a sequence containing ambiguous bases")]
     AmbiguousPalindrome,

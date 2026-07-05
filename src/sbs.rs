@@ -201,7 +201,7 @@ impl<B: ConcreteBase> SingleBaseSubstitution<B> {
 mod tests {
     use super::*;
     use crate::{
-        coord::Pos,
+        coords::Pos,
         mutation::IupacDnaSmallMutation,
         sequence::{DnaSeq, IupacDnaSeq},
     };
