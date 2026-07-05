@@ -50,7 +50,7 @@
 //! This separation keeps `seqlib` focused on **correct representation and safe
 //! manipulation** of biological sequences.
 
-use crate::{base::Base, coords::Pos, sequence::Seq};
+use crate::{base::Base, coords::Pos, sequences::Seq};
 
 /// A reference context window fetched around a mutation.
 ///

@@ -1,4 +1,4 @@
-use seqlib::sequence::IupacDnaSeq;
+use seqlib::sequences::IupacDnaSeq;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let clean = IupacDnaSeq::new("ACGT")?;

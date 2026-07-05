@@ -203,7 +203,7 @@ mod tests {
     use crate::{
         coords::Pos,
         mutation::IupacDnaSmallMutation,
-        sequence::{DnaSeq, IupacDnaSeq},
+        sequences::{DnaSeq, IupacDnaSeq},
     };
 
     fn iupac_dna_mut(reference: &str, alternative: &str) -> IupacDnaSmallMutation {

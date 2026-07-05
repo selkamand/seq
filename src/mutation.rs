@@ -5,7 +5,7 @@ use crate::{
     context::ContextWindow,
     coords::{Interval, Pos, Strand},
     error::MutationError as Error,
-    sequence::Seq,
+    sequences::Seq,
 };
 
 pub(crate) type Result<T> = std::result::Result<T, Error>;
@@ -287,7 +287,7 @@ impl<B: Base> SmallMutation<B> {
     ///
     /// ```rust
     /// use seqlib::mutation::DnaSmallMutation;
-    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::sequences::DnaSeq;
     /// use seqlib::coords::{Pos, Strand};
     ///
     /// let m = DnaSmallMutation::new(
@@ -548,7 +548,7 @@ impl<B: Base> MutationWithContext<B> {
 mod tests {
     use super::*;
     use crate::base::{ChemClass, IupacDnaBase, IupacRnaBase};
-    use crate::sequence::Seq;
+    use crate::sequences::Seq;
 
     // --- Helpers ---
 

@@ -50,7 +50,7 @@ impl<B: Base> fmt::Display for Seq<B> {
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::IupacDnaSeq;
+/// use seqlib::sequences::IupacDnaSeq;
 ///
 /// let seq = IupacDnaSeq::new("ACGTN").unwrap();
 /// println!("{}", seq);
@@ -73,7 +73,7 @@ pub type IupacDnaSeq = Seq<IupacDnaBase>;
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::DnaSeq;
+/// use seqlib::sequences::DnaSeq;
 ///
 /// let seq = DnaSeq::new("ACGT").unwrap();
 /// println!("{}", seq);
@@ -97,7 +97,7 @@ pub type DnaSeq = Seq<DnaBase>;
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::IupacRnaSeq;
+/// use seqlib::sequences::IupacRnaSeq;
 ///
 /// let seq = IupacRnaSeq::new("ACGUN").unwrap();
 /// println!("{}", seq);
@@ -120,7 +120,7 @@ pub type IupacRnaSeq = Seq<IupacRnaBase>;
 /// # Examples
 ///
 /// ```rust
-/// use seqlib::sequence::RnaSeq;
+/// use seqlib::sequences::RnaSeq;
 ///
 /// let seq = RnaSeq::new("ACGU").unwrap();
 /// println!("{}", seq);
@@ -183,7 +183,7 @@ impl<B: Base> Seq<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::sequences::DnaSeq;
     /// use seqlib::base::Base;
     /// let seq = DnaSeq::new("ACGT").unwrap();
     /// let bases = seq.as_slice();
@@ -302,7 +302,7 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```
-    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::sequences::DnaSeq;
     ///
     /// let seq = DnaSeq::new("ACGT").unwrap();
     /// assert_eq!(seq.reverse().to_string(), "TGCA");
@@ -430,7 +430,7 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::DnaSeq;
+    /// use seqlib::sequences::DnaSeq;
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
     /// let view = seq.slice(1, 4).unwrap();
@@ -469,7 +469,7 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coords::{Pos, Interval}, sequence::{BaseSliceExt, DnaSeq}};
+    /// use seqlib::{coords::{Pos, Interval}, sequences::{BaseSliceExt, DnaSeq}};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
     /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
@@ -503,7 +503,7 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coords::{Pos, Interval}, sequence::DnaSeq};
+    /// use seqlib::{coords::{Pos, Interval}, sequences::DnaSeq};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
     /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4
@@ -661,7 +661,7 @@ impl<B: ConcreteBase> Seq<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::{DnaSeq, RnaSeq};
+    /// use seqlib::sequences::{DnaSeq, RnaSeq};
     ///
     /// // A DNA biological palindrome
     /// assert!(DnaSeq::new("GAATTC").unwrap().is_palindromic());
@@ -730,7 +730,7 @@ impl<B: DegenerateBase> Seq<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::IupacDnaSeq;
+    /// use seqlib::sequences::IupacDnaSeq;
     ///
     /// // A concrete, unambiguous palindrome -> Ok(true)
     /// assert!(IupacDnaSeq::new("GAATTC").unwrap().is_palindromic_checked() == Ok(true));
@@ -778,7 +778,7 @@ impl<B: DegenerateBase> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::sequence::IupacDnaSeq;
+    /// use seqlib::sequences::IupacDnaSeq;
     ///
     /// let seq = IupacDnaSeq::new("ACGT").unwrap();
     /// let concrete = seq.try_to_concrete().unwrap();
@@ -787,7 +787,7 @@ impl<B: DegenerateBase> Seq<B> {
     /// ```
     ///
     /// ```rust
-    /// use seqlib::sequence::IupacDnaSeq;
+    /// use seqlib::sequences::IupacDnaSeq;
     ///
     /// let seq = IupacDnaSeq::new("ACNT").unwrap();
     ///
@@ -857,12 +857,12 @@ macro_rules! dna {
     ($lit:literal) => {{
         // Force compile-time validation *at the call site*.
         const _: () = {
-            $crate::sequence::validate_dna_literal($lit);
+            $crate::sequences::validate_dna_literal($lit);
         };
 
         // Now construct using the existing, single runtime constructor.
         // If your const checker matches `try_from_ascii`, this unwrap is safe.
-        $crate::sequence::DnaSeq::new($lit).unwrap()
+        $crate::sequences::DnaSeq::new($lit).unwrap()
     }};
 }
 

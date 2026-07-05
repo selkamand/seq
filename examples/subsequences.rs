@@ -1,7 +1,7 @@
 use seqlib::{
     coords::{Interval, Pos},
     pos,
-    sequence::{BaseSliceExt, IupacDnaSeq},
+    sequences::{BaseSliceExt, IupacDnaSeq},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

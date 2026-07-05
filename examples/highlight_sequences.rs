@@ -1,6 +1,6 @@
 use seqlib::{
     coords::{Interval, Pos},
-    sequence::IupacDnaSeq,
+    sequences::IupacDnaSeq,
 };
 
 fn main() {
