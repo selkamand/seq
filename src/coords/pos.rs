@@ -215,7 +215,7 @@ impl TryFrom<u32> for Pos {
 ///
 /// # Examples
 /// ```
-/// use seqlib::coord::{Pos};
+/// use seqlib::coords::{Pos};
 /// use seqlib::pos;
 ///
 /// const P: Pos = pos!(123);
@@ -231,7 +231,7 @@ macro_rules! pos {
         // const P: core::num::NonZeroUsize = match core::num::NonZeroUsize::new($lit) {
         // Some(v) => v,
         // None => compile_error!("Cannot create valid position from ($lit)"),
-        // $crate::coord::Pos::new_unchecked(P)
+        // $crate::coords::Pos::new_unchecked(P)
     }};
 }
 

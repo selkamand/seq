@@ -503,7 +503,7 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coord::{Pos, Interval}, sequence::DnaSeq};
+    /// use seqlib::{coords::{Pos, Interval}, sequence::DnaSeq};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
     /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(4).unwrap()).unwrap(); // 2..=4

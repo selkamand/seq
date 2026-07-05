@@ -288,7 +288,7 @@ impl<B: Base> SmallMutation<B> {
     /// ```rust
     /// use seqlib::mutation::DnaSmallMutation;
     /// use seqlib::sequence::DnaSeq;
-    /// use seqlib::coord::{Pos, Strand};
+    /// use seqlib::coords::{Pos, Strand};
     ///
     /// let m = DnaSmallMutation::new(
     ///     "chr1".to_string(),
