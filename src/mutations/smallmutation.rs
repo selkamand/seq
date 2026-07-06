@@ -2,8 +2,7 @@ use core::fmt;
 
 use crate::{
     base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
-    context::ContextWindow,
-    coords::{Interval, Pos, Strand},
+    coords::{Pos, Strand},
     error::MutationError as Error,
     sequences::Seq,
 };
@@ -176,6 +175,13 @@ impl<B: Base> SmallMutation<B> {
         &self.alternative
     }
 
+    /// Returns the strand of the source molecule that contains
+    /// the reference allele of this mutation (or None if from  
+    /// a single stranded molecule like RNA
+    pub fn strand(&self) -> Option<&Strand> {
+        self.strand.as_ref()
+    }
+
     /// Returns whether this mutation originated from a multi-allelic site.
     ///
     /// This is metadata (e.g. a VCF record with multiple ALT alleles) and does not change
@@ -286,7 +292,7 @@ impl<B: Base> SmallMutation<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::mutation::DnaSmallMutation;
+    /// use seqlib::mutations::DnaSmallMutation;
     /// use seqlib::sequences::DnaSeq;
     /// use seqlib::coords::{Pos, Strand};
     ///
@@ -432,115 +438,6 @@ impl TiTv {
             (ChemClass::Purine, ChemClass::Pyrimidine) => TiTv::Transversion,
             (ChemClass::Pyrimidine, ChemClass::Purine) => TiTv::Transversion,
         }
-    }
-}
-
-/// A mutation annotated with reference sequence around it
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MutationWithContext<B: Base> {
-    mutation: SmallMutation<B>,
-    context: Option<ContextWindow<B>>,
-}
-
-impl<B: Base> std::fmt::Display for MutationWithContext<B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "-- Mutation --")?;
-        writeln!(f, "{}", self.mutation)?;
-        writeln!(f)?;
-        writeln!(f, "-- Context --")?;
-
-        match self.context.as_ref() {
-            Some(ctx) => write!(f, "{ctx}"),
-            None => write!(f, "No context"),
-        }
-    }
-}
-
-impl<B: Base> MutationWithContext<B> {
-    // < Constructor >
-
-    /// Construct a new MutationWithContext object
-    pub fn new(mutation: SmallMutation<B>, context: Option<ContextWindow<B>>) -> Self {
-        Self { mutation, context }
-    }
-
-    // < Getters >
-    pub fn with_context(mut self, context: ContextWindow<B>) -> Self {
-        self.context = Some(context);
-        self
-    }
-
-    pub fn mutation(&self) -> &SmallMutation<B> {
-        &self.mutation
-    }
-
-    pub fn context(&self) -> Option<&ContextWindow<B>> {
-        self.context.as_ref()
-    }
-
-    pub fn context_mut(&mut self) -> Option<&mut ContextWindow<B>> {
-        self.context.as_mut()
-    }
-
-    pub fn has_context(&self) -> bool {
-        self.context.is_some()
-    }
-    pub fn ref_trinuc(&self) -> Option<&[B]> {
-        self.context.as_ref()?.kmer_centered_on_anchor(3)
-    }
-
-    pub fn ref_pentanuc(&self) -> Option<&[B]> {
-        if self.mutation.class() != SmallMutationType::SNV {
-            return None;
-        }
-        self.context.as_ref()?.kmer_centered_on_anchor(5)
-    }
-
-    /// Get the interval of context affected by the mutation
-    pub fn mutated_interval(&self) -> Result<Interval> {
-        let ctx = match self.context() {
-            Some(ctx) => ctx,
-            None => {
-                return Err(Error::MissingContext {
-                    id: self.mutation.chrom_pos_ref_alt(),
-                });
-            }
-        };
-        let pos1 = ctx.anchor();
-        let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
-
-        let interval = Interval::new(pos1, pos2)?;
-
-        Ok(interval)
-    }
-
-    // pub fn mutate(&self) -> Seq<B> {}
-    /// Visualise the mutation in context
-    pub fn to_difference_string(&self) -> String {
-        if !self.has_context() {
-            return self.mutation().to_string();
-        }
-
-        // Grab context
-        let ctx = match self.context() {
-            Some(val) => val,
-            None => return self.to_string(),
-        };
-
-        let seq = ctx.seq();
-        let interval = Interval::new(
-            ctx.anchor(),
-            ctx.anchor().saturating_add(self.mutation().reflen()),
-        );
-
-        let refstring = if let Ok(interval) = self.mutated_interval() {
-            ctx.seq().format_with_highlight_interval(Some(&interval))
-        } else {
-            ctx.seq()
-                .format_with_highlight_pos(Some(self.mutation().position()))
-        };
-
-        let altstring = todo!();
     }
 }
 

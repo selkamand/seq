@@ -43,7 +43,7 @@ impl<B: Base> SourcedSeq<B> {
     /// Create a new [`SourcedSeq`] object representing a sequence originating from some other
     /// source (e.g. a reference genome / transcriptome / other sequence).
     ///
-    pub fn new<S, R, P>(seq: S, region: R, strand: Option<Strand>) -> Self
+    pub fn new<S, R>(seq: S, region: R, strand: Option<Strand>) -> Self
     where
         S: Into<Seq<B>>,
         R: Into<Region>,
@@ -70,8 +70,8 @@ impl<B: Base> SourcedSeq<B> {
 
     /// Returns the [`Strand`] this sequence originated from if sequence originates from a double stranded
     /// molecule.
-    pub fn strand(&self) -> Option<Strand> {
-        self.strand
+    pub fn strand(&self) -> Option<&Strand> {
+        self.strand.as_ref()
     }
 
     /// Return a new SourcedSeq representing the reverse complement.

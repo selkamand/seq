@@ -583,6 +583,7 @@ impl<B: Base> Seq<B> {
         }
     }
 
+    /// Mutate a sequence changing an interval to a new sequence
     pub fn mutate(&mut self, interval: Interval, new: &Seq<B>) -> Result<Self> {
         let mut cloned_seq = self.clone();
         cloned_seq.mutate_in_place(interval, new)?;
