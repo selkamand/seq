@@ -43,7 +43,7 @@ impl<B: Base> SourcedSeq<B> {
     /// Create a new [`SourcedSeq`] object representing a sequence originating from some other
     /// source (e.g. a reference genome / transcriptome / other sequence).
     ///
-    pub fn new<S, R, P>(seq: S, region: R, strand: Option<Strand>) -> Self
+    pub fn new<S, R>(seq: S, region: R, strand: Option<Strand>) -> Self
     where
         S: Into<Seq<B>>,
         R: Into<Region>,
