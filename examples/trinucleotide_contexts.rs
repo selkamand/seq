@@ -1,6 +1,6 @@
 use seqlib::coords::{Interval, Pos, Region, Strand};
 use seqlib::mutations::{MutationWithContext, SmallMutation};
-use seqlib::sequences::SourcedSeq;
+use seqlib::sequences::{BaseSliceExt, SourcedSeq};
 use seqlib::{dna, pos};
 use std::error::Error;
 
@@ -30,6 +30,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     eprintln!(
         "-----Full Sequence Comparison----\n{}",
         mutation_with_context.to_difference_string()
+    );
+
+    let tnc = mutation_with_context.kmer_centered_on_anchor(3);
+    eprintln!(
+        "\n\nTNC: {}",
+        tnc.map(|x| x.to_string_upper())
+            .unwrap_or("Could not be found".to_string())
     );
 
     Ok(())
