@@ -88,6 +88,11 @@ pub enum MutationError {
         #[source]
         source: SequenceError,
     },
+
+    #[error(
+        "reference allele of mutation does NOT match context sequence at the expected position. Problematic mutation: {mutation}. Problematic context: {context}"
+    )]
+    MismatchedReferenceAlleleAndContextSeq { mutation: String, context: String },
 }
 
 // #[derive(thiserror::Error, Debug, PartialEq, Eq)]

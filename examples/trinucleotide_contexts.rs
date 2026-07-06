@@ -31,5 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         "-----Full Sequence Comparison----\n{}",
         mutation_with_context.to_difference_string()
     );
+
     Ok(())
 }

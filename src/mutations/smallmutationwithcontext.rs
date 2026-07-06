@@ -58,11 +58,26 @@ impl<B: Base> MutationWithContext<B> {
             },
         };
 
-        Ok(Self {
+        // Create struct to gain access to helpers to check validity
+        let mutwithcontext = Self {
             mutation,
             context: normalised_context,
             anchor,
-        })
+        };
+
+        // If reference bases don't match the expected context subsequence return an Error
+        if !mutwithcontext.reference_bases_viable() {
+            return Err(MutationError::MismatchedReferenceAlleleAndContextSeq {
+                mutation: mutwithcontext.mutation().chrom_pos_ref_alt(),
+                context: mutwithcontext
+                    .context()
+                    .seq()
+                    .format_with_highlight_interval(
+                        mutwithcontext.mutated_interval().ok().as_ref(),
+                    ),
+            });
+        }
+        Ok(mutwithcontext)
     }
 
     // < Getters >
@@ -113,6 +128,27 @@ impl<B: Base> MutationWithContext<B> {
         let interval = Interval::new(pos1, pos2)?;
 
         Ok(interval)
+    }
+
+    /// Is the context sequence viable given the mutation reference allele and anchor position.
+    /// Returns true if:
+    /// 1. the context sequence matchs the mutation reference sequence at the expected region
+    ///    (based on anchor position and reference size)
+    /// 2. The expected mutated interval is outside the context sequence
+    ///
+    /// Returns false in all other cases
+    pub fn reference_bases_viable(&self) -> bool {
+        let interval = match self.mutated_interval() {
+            Ok(i) => i,
+            Err(_) => return false,
+        };
+
+        let mutated_bases = match self.context().seq().subseq(&interval) {
+            Ok(s) => s,
+            Err(_) => return true,
+        };
+
+        mutated_bases == *self.mutation().reference()
     }
 
     /// Apply a mutation to a sequence context
