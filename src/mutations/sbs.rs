@@ -10,7 +10,7 @@ use std::fmt::Display;
 
 use crate::{
     base::{Base, ConcreteBase, DegenerateBase, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
-    mutation::{SmallMutation, SmallMutationType, TiTv},
+    mutations::{SmallMutation, SmallMutationType, TiTv},
 };
 
 /// Error raised when the [`SmallMutation`] types cannot be narrowed to a concrete SBS.
@@ -202,7 +202,7 @@ mod tests {
     use super::*;
     use crate::{
         coords::Pos,
-        mutation::IupacDnaSmallMutation,
+        mutations::IupacDnaSmallMutation,
         sequences::{DnaSeq, IupacDnaSeq},
     };
 
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn converts_concrete_dna_small_mutation() {
-        let mutation = crate::mutation::DnaSmallMutation::new(
+        let mutation = crate::mutations::DnaSmallMutation::new(
             "chr1".to_string(),
             Pos::new(1).unwrap(),
             DnaSeq::new("T").unwrap(),

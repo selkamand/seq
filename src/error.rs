@@ -70,9 +70,6 @@ pub enum MutationError {
     #[error(transparent)]
     Coord(#[from] CoordError),
 
-    #[error("mutation [{id}] does not have a sequence context")]
-    MissingContext { id: String },
-
     #[error("cannot pyrimidine-center mutation because the reference sequence has no middle base")]
     MissingMiddleBase,
 
@@ -80,6 +77,17 @@ pub enum MutationError {
         "cannot pyrimidine-center mutation because middle base '{base}' has ambiguous chemical class"
     )]
     AmbiguousMiddleBase { base: char },
+
+    #[error("strand field of mutation and context must both be either Some or None.")]
+    MismatchedStrandOption,
+
+    #[error("failed to apply mutation {mutation} to sequence context")]
+    FailedToApplyMutationToContext {
+        mutation: String,
+
+        #[source]
+        source: SequenceError,
+    },
 }
 
 // #[derive(thiserror::Error, Debug, PartialEq, Eq)]

@@ -34,6 +34,5 @@ pub mod base;
 pub mod context;
 pub mod coords;
 pub mod error;
-pub mod mutation;
-pub mod sbs;
+pub mod mutations;
 pub mod sequences;

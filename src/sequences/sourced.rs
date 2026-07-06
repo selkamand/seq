@@ -70,8 +70,8 @@ impl<B: Base> SourcedSeq<B> {
 
     /// Returns the [`Strand`] this sequence originated from if sequence originates from a double stranded
     /// molecule.
-    pub fn strand(&self) -> Option<Strand> {
-        self.strand
+    pub fn strand(&self) -> Option<&Strand> {
+        self.strand.as_ref()
     }
 
     /// Return a new SourcedSeq representing the reverse complement.
