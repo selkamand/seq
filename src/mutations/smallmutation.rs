@@ -2,8 +2,7 @@ use core::fmt;
 
 use crate::{
     base::{Base, ChemClass, DnaBase, IupacDnaBase, IupacRnaBase, RnaBase},
-    context::ContextWindow,
-    coords::{Interval, Pos, Strand},
+    coords::{Pos, Strand},
     error::MutationError as Error,
     sequences::Seq,
 };

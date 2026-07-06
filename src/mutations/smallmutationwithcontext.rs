@@ -1,6 +1,5 @@
 use crate::{
     base::Base,
-    context,
     coords::{Interval, Pos},
     error::MutationError,
     mutations::SmallMutation,
