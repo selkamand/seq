@@ -292,7 +292,7 @@ impl<B: Base> SmallMutation<B> {
     /// ## Examples
     ///
     /// ```rust
-    /// use seqlib::mutation::DnaSmallMutation;
+    /// use seqlib::mutations::DnaSmallMutation;
     /// use seqlib::sequences::DnaSeq;
     /// use seqlib::coords::{Pos, Strand};
     ///
