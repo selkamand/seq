@@ -19,10 +19,23 @@ impl std::fmt::Display for Interval {
 }
 
 impl Interval {
-    /// Create a new region (1-based inclusive)
+    /// Creates a 1-based inclusive interval from `start` to `end`.
     ///
-    /// ## Errors
-    /// Retruns a [`CoordError::RangeEndTooSmall`] if end position is less than start position
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
+    ///
+    /// assert_eq!(*interval.start(), Pos::new(2)?);
+    /// assert_eq!(*interval.end(), Pos::new(5)?);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::RangeEndTooSmall`] if `end` is less than `start`.
     pub fn new(start: Pos, end: Pos) -> Result<Self> {
         if end < start {
             return Err(Error::RangeEndTooSmall { start, end });
@@ -30,20 +43,57 @@ impl Interval {
         Ok(Self { start, end })
     }
 
-    /// Create an interval from a position by padding `left` bases upstream and `right` bases downstream
-    pub fn from_position(pos: Pos, left: usize, right: usize) -> Self {
+    /// Creates an interval around `pos` with `left` bases before and `right` bases after it.
+    ///
+    /// The bounds saturate at [`Pos::MIN`] and [`Pos::MAX`] rather than failing on
+    /// underflow or overflow.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::around_position(Pos::new(10)?, 2, 3);
+    ///
+    /// assert_eq!(*interval.start(), Pos::new(8)?);
+    /// assert_eq!(*interval.end(), Pos::new(13)?);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
+    pub fn around_position(pos: Pos, left: usize, right: usize) -> Self {
         Self {
             start: pos.saturating_sub(left),
             end: pos.saturating_add(right),
         }
     }
 
-    /// Get start position
+    /// Returns the inclusive start position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(3)?, Pos::new(7)?)?;
+    ///
+    /// assert_eq!(*interval.start(), Pos::new(3)?);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
     pub fn start(&self) -> &Pos {
         &self.start
     }
 
-    /// Get end position
+    /// Returns the inclusive end position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(3)?, Pos::new(7)?)?;
+    ///
+    /// assert_eq!(*interval.end(), Pos::new(7)?);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
     pub fn end(&self) -> &Pos {
         &self.end
     }
@@ -53,7 +103,20 @@ impl Interval {
         false
     }
 
-    /// Length of region (number of bases they span)
+    /// Returns the number of positions spanned by the interval.
+    ///
+    /// Because intervals are inclusive, `1-1` has length 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
+    ///
+    /// assert_eq!(interval.len(), 4);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
     pub fn len(&self) -> usize {
         self.end
             .get()
@@ -61,7 +124,21 @@ impl Interval {
             .saturating_add(1)
     }
 
-    /// Get region as 0-based indices for easier extractions of sequence slices
+    /// Returns the interval as 0-based half-open indices.
+    ///
+    /// The returned `(start, end)` pair is suitable for Rust slicing, where
+    /// `start` is inclusive and `end` is exclusive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
+    ///
+    /// assert_eq!(interval.as_0based_indices(), (1, 5));
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
     pub fn as_0based_indices(&self) -> (usize, usize) {
         (self.start.as_0based_index(), self.end.as_0based_index() + 1)
     }
