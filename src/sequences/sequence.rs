@@ -339,7 +339,7 @@ impl<B: Base> Seq<B> {
     pub fn is_interval_valid(&self, interval: &Interval) -> bool {
         match self.is_empty() {
             true => false,
-            false => interval.end() < self.max_pos(),
+            false => *interval.end() < self.max_pos(),
         }
     }
 
@@ -568,11 +568,11 @@ impl<B: Base> Seq<B> {
             let (start, end) = reg.as_0based_indices();
             let mut s = self.to_string();
 
-            if self.sequence_contains_position(reg.start()) {
+            if self.sequence_contains_position(*reg.start()) {
                 s.insert(start, '[');
             }
 
-            if self.sequence_contains_position(reg.end()) {
+            if self.sequence_contains_position(*reg.end()) {
                 s.insert(end + 1, ']');
             } else if !self.is_empty() {
                 s.push_str(&format!("{}{}", "]>", reg.end()));

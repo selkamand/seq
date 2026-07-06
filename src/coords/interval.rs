@@ -39,13 +39,13 @@ impl Interval {
     }
 
     /// Get start position
-    pub fn start(&self) -> Pos {
-        self.start
+    pub fn start(&self) -> &Pos {
+        &self.start
     }
 
     /// Get end position
-    pub fn end(&self) -> Pos {
-        self.end
+    pub fn end(&self) -> &Pos {
+        &self.end
     }
 
     /// Check if region is empty. Always returns false as regions are never empty, by definition they contain at least 1 base)

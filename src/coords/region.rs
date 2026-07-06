@@ -14,7 +14,9 @@ impl std::fmt::Display for Region {
         write!(
             f,
             "{}:{}-{}",
-            self.name, self.interval.start, self.interval.end
+            self.name(),
+            self.interval().start(),
+            self.interval().end()
         )
     }
 }
