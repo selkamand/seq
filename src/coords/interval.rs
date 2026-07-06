@@ -142,6 +142,57 @@ impl Interval {
     pub fn as_0based_indices(&self) -> (usize, usize) {
         (self.start.as_0based_index(), self.end.as_0based_index() + 1)
     }
+
+    /// Returns the 1-based local position of `pos` within the interval.
+    ///
+    /// The returned [`Pos`] is suitable for APIs that expect a sequence-local
+    /// coordinate, such as the `anchor` argument of
+    /// [`MutationWithContext::new`](crate::mutations::MutationWithContext::new).
+    /// Returns `None` if `pos` is outside the interval.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(8)?, Pos::new(13)?)?;
+    ///
+    /// assert_eq!(interval.local_position(Pos::new(10)?), Some(Pos::new(3)?));
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
+    ///
+    /// Saturated intervals still return the observed local position.
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::around_position(Pos::new(2)?, 5, 4);
+    ///
+    /// assert_eq!(*interval.start(), Pos::new(1)?);
+    /// assert_eq!(*interval.end(), Pos::new(6)?);
+    /// assert_eq!(interval.local_position(Pos::new(2)?), Some(Pos::new(2)?));
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
+    ///
+    /// Positions outside the interval return `None`.
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(8)?, Pos::new(13)?)?;
+    ///
+    /// assert_eq!(interval.local_position(Pos::new(7)?), None);
+    /// assert_eq!(interval.local_position(Pos::new(14)?), None);
+    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// ```
+    pub fn local_position(&self, pos: Pos) -> Option<Pos> {
+        if pos < self.start || pos > self.end {
+            return None;
+        }
+
+        let local_position = pos.get() - self.start.get() + 1;
+        Pos::new(local_position).ok()
+    }
 }
 
 impl Default for Interval {
