@@ -8,8 +8,8 @@ pub(crate) type Result<T> = std::result::Result<T, Error>;
 /// Both are 1-based and both-end inclusive
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interval {
-    pub start: Pos,
-    pub end: Pos,
+    start: Pos,
+    end: Pos,
 }
 
 impl std::fmt::Display for Interval {
@@ -20,11 +20,22 @@ impl std::fmt::Display for Interval {
 
 impl Interval {
     /// Create a new region (1-based inclusive)
+    ///
+    /// ## Errors
+    /// Retruns a [`CoordError::RangeEndTooSmall`] if end position is less than start position
     pub fn new(start: Pos, end: Pos) -> Result<Self> {
         if end < start {
             return Err(Error::RangeEndTooSmall { start, end });
         }
         Ok(Self { start, end })
+    }
+
+    /// Create an interval from a position by padding `left` bases upstream and `right` bases downstream
+    pub fn from_position(pos: Pos, left: usize, right: usize) -> Self {
+        Self {
+            start: pos.saturating_sub(left),
+            end: pos.saturating_add(right),
+        }
     }
 
     /// Get start position
