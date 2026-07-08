@@ -1,5 +1,7 @@
 //! Interval Type (simple range defined by start and end position)
 
+use std::num::NonZeroUsize;
+
 use crate::coords::Pos;
 use crate::error::CoordError as Error;
 pub(crate) type Result<T> = std::result::Result<T, Error>;
@@ -119,6 +121,29 @@ impl Interval {
     pub fn len(&self) -> usize {
         // this cannot overflow because during construction we ensure end >= start
         self.end().get() - self.start().get() + 1
+    }
+
+    /// Returns the number of positions spanned by the interval.
+    ///
+    /// Because intervals are inclusive, `1-1` has length 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use seqlib::coords::{Interval, Pos};
+    ///
+    /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
+    ///
+    /// assert_eq!(interval.len_nonzero(), 4);
+    /// ````
+    ///
+    pub fn len_nonzero(&self) -> NonZeroUsize {
+        match NonZeroUsize::try_from(self.len()) {
+            Ok(val) => return val,
+            Err(_) => unreachable!(
+                "Implementation mistake: len_nonzero method of interval should never error because len() of a 1-based inclusive interval is always >=1 so long as constructor properly asserts end >= start and len() method calculates length correctly. Please report this error message on this repos github"
+            ),
+        }
     }
 
     /// Returns the interval as 0-based half-open indices.
