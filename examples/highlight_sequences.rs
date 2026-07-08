@@ -24,5 +24,5 @@ fn main() {
     println!("{}", seq.format_with_highlight_interval(Some(&interval2)));
 
     // Pretty print with background colours
-    println!("{}", seq.format_colourised());
+    println!("{}", seq.format_with_colour());
 }
