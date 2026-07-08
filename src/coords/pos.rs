@@ -19,6 +19,7 @@ use std::num::NonZeroUsize;
 /// # Notes
 /// - This type stores a `NonZeroUsize`. On both 32 and 64-bit platforms this comfortably fits common
 ///   genome/transcript coordinate ranges (32 bits: 4,294,967,295, 64 bits: 18,446,744,073,709,551,615).
+#[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pos(NonZeroUsize);
 
