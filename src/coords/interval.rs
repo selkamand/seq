@@ -90,9 +90,9 @@ impl Interval {
     ///
     /// ```
     /// use seqlib::coords::{Interval, Pos};
-    /// use seqlib::pos
+    /// use seqlib::pos;
     ///
-    /// let interval = Interval::new(pos!(2), pos!(5)).unwrap();
+    /// let interval = Interval::new(pos!(2), pos!(7)).unwrap();
     ///
     /// assert_eq!(*interval.end(), pos!(7));
     /// ```
@@ -117,6 +117,7 @@ impl Interval {
     /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
     ///
     /// assert_eq!(interval.len(), 4);
+    /// # Ok::<(), seqlib::error::CoordError>(())
     /// ```
     pub fn len(&self) -> usize {
         // this cannot overflow because during construction we ensure end >= start
@@ -131,15 +132,15 @@ impl Interval {
     ///
     /// ```
     /// use seqlib::coords::{Interval, Pos};
+    /// use std::num::NonZeroUsize;
+    /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(5).unwrap()).unwrap();
     ///
-    /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
-    ///
-    /// assert_eq!(interval.len_nonzero(), 4);
+    /// assert_eq!(interval.len_nonzero(), NonZeroUsize::new(4).unwrap());
     /// ````
     ///
     pub fn len_nonzero(&self) -> NonZeroUsize {
         match NonZeroUsize::try_from(self.len()) {
-            Ok(val) => return val,
+            Ok(val) => val,
             Err(_) => unreachable!(
                 "Implementation mistake: len_nonzero method of interval should never error because len() of a 1-based inclusive interval is always >=1 so long as constructor properly asserts end >= start and len() method calculates length correctly. Please report this error message on this repos github"
             ),
