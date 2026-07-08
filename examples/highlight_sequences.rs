@@ -22,4 +22,7 @@ fn main() {
     // will annotate with '>'
     let interval2 = Interval::new(Pos::new(5usize).unwrap(), Pos::new(100usize).unwrap()).unwrap();
     println!("{}", seq.format_with_highlight_interval(Some(&interval2)));
+
+    // Pretty print with background colours
+    println!("{}", seq.format_colourised());
 }

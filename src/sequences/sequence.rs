@@ -583,6 +583,17 @@ impl<B: Base> Seq<B> {
         }
     }
 
+    /// Format sequence as string, with ANSI color codes to get background highlights
+    pub fn format_with_colour(&self) -> String {
+        let mut out = String::new();
+
+        for b in self.as_slice().iter() {
+            out.push_str(&b.to_colourised_string());
+        }
+
+        out
+    }
+
     /// Mutate a sequence changing an interval to a new sequence
     pub fn mutate(&mut self, interval: Interval, new: &Seq<B>) -> Result<Self> {
         let mut cloned_seq = self.clone();
