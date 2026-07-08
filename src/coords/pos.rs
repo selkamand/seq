@@ -130,6 +130,18 @@ impl Pos {
             }),
         }
     }
+
+    /// Construct a [`Pos`] from a [`NonZeroUsize`]
+    ///
+    /// This is infallable because every `NonZeroUsize` is a valid 1-based position
+    pub fn from_nonzero(position: NonZeroUsize) -> Self {
+        Self(position)
+    }
+
+    /// Return the underlying non-zero 1-based coordinate.
+    pub const fn as_nonzero(self) -> NonZeroUsize {
+        self.0
+    }
 }
 
 impl core::fmt::Display for Pos {
@@ -195,6 +207,18 @@ impl TryFrom<u32> for Pos {
         })?;
 
         Pos::new(as_usize)
+    }
+}
+
+impl From<NonZeroUsize> for Pos {
+    fn from(value: NonZeroUsize) -> Self {
+        Self::from_nonzero(value)
+    }
+}
+
+impl From<Pos> for NonZeroUsize {
+    fn from(value: Pos) -> Self {
+        value.0
     }
 }
 
