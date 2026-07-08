@@ -93,6 +93,22 @@ pub enum MutationError {
         "reference allele of mutation does NOT match context sequence at the expected position. Problematic mutation: {mutation}. Problematic context: {context}"
     )]
     MismatchedReferenceAlleleAndContextSeq { mutation: String, context: String },
+
+    #[error(
+        "name of the mutated chromosome ({mutated_chromosome}) is different to chromosome the sequence context originated from ({context_chromosome})"
+    )]
+    MismatchedChromosomeName {
+        mutated_chromosome: String,
+        context_chromosome: String,
+    },
+    #[error(
+        "mutation position ({position}) is outside the interval {start}-{end} (1-based inclusive)"
+    )]
+    MutationPositionOutsideInterval {
+        position: usize,
+        start: usize,
+        end: usize,
+    },
 }
 
 // #[derive(thiserror::Error, Debug, PartialEq, Eq)]

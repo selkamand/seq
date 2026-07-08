@@ -13,7 +13,6 @@ pub(crate) type Result<T> = std::result::Result<T, MutationError>;
 pub struct MutationWithContext<B: Base> {
     mutation: SmallMutation<B>,
     context: SourcedSeq<B>,
-    anchor: Pos,
 }
 
 impl<B: Base> std::fmt::Display for MutationWithContext<B> {
@@ -35,7 +34,7 @@ impl<B: Base> MutationWithContext<B> {
     ///
     /// Note if strand is supplied for both but the value itself differs, the context will be
     /// reverse complemented so they match
-    pub fn new(mutation: SmallMutation<B>, context: SourcedSeq<B>, anchor: Pos) -> Result<Self> {
+    pub fn new(mutation: SmallMutation<B>, context: SourcedSeq<B>) -> Result<Self> {
         // Strand comparison
         let mutstrand = mutation.strand();
         let contextstrand = context.strand();
@@ -62,8 +61,11 @@ impl<B: Base> MutationWithContext<B> {
         let mutwithcontext = Self {
             mutation,
             context: normalised_context,
-            anchor,
         };
+
+        // Additiona validations:
+        // Check chromosome names in mutation and sequence context matches
+        mutwithcontext.check_chromosome_names_match()?;
 
         // If reference bases don't match the expected context subsequence return an Error
         if !mutwithcontext.reference_bases_viable() {
@@ -80,6 +82,40 @@ impl<B: Base> MutationWithContext<B> {
         Ok(mutwithcontext)
     }
 
+    // < Validity Checks>
+
+    /// Check whether chromosome names match and return error if not
+    fn check_chromosome_names_match(&self) -> Result<()> {
+        let mutated_chromosome = self.mutation().chromosome();
+        let context_chromosome = self.context().region().name();
+
+        if mutated_chromosome != context_chromosome {
+            return Err(MutationError::MismatchedChromosomeName {
+                mutated_chromosome: mutated_chromosome.into(),
+                context_chromosome: context_chromosome.into(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn check_mutation_position_within_sequence_context_interval(&self) -> Result<()> {
+        let mutation_position = self.mutation().position();
+        let region = self.context().region();
+        let context_start = region.interval().start();
+        let context_end = region.interval().end();
+        // If mutation is outside the bounds of the sequence context return an error
+        if mutation_position < *context_start || mutation_position > *context_end {
+            return Err(MutationError::MutationPositionOutsideInterval {
+                position: mutation_position.get(),
+                start: context_start.get(),
+                end: context_end.get(),
+            });
+        }
+
+        Ok(())
+    }
+
     // < Getters >
 
     /// Sequence-local 1-based position within `context sequence` describing where the mutation
@@ -87,16 +123,54 @@ impl<B: Base> MutationWithContext<B> {
     ///
     /// For example, `anchor of Pos(1) means mutation of context() `seq[0]`.
     ///
-    pub fn anchor(&self) -> &Pos {
-        &self.anchor
+    /// Will return an error if the Position of the mutation is outside the region context
+    pub fn anchor(&self) -> Result<Pos> {
+        // Variables for convenience
+        let mutation_position = self.mutation().position();
+        let region = self.context().region();
+        let context_start = region.interval().start();
+        let context_end = region.interval().end();
+
+        // Validations:
+        self.check_chromosome_names_match()?;
+        self.check_mutation_position_within_sequence_context_interval()?;
+
+        // If mutation position is at the first base just return 1
+        if mutation_position == *context_start {
+            return Ok(crate::pos!(1));
+        }
+
+        // If mutation position is at the end base just return end
+        if mutation_position == *context_end {
+            let len = region.interval().len_nonzero();
+            let anchor = Pos::from(len);
+            return Ok(anchor);
+        }
+
+        // Create the 'anchor' position
+        // Note we use plain + and - here instead of checked/saturated operations since above 2 if
+        // statements guarantee usize won't be negative
+        let anchor_usize =
+            context_start.get() + mutation_position.get().abs_diff(context_start.get()) - 1;
+
+        let anchor = match Pos::new(anchor_usize) {
+            Ok(p) => p,
+            Err(_) => unreachable!(
+                "Could not create anchor from usize {anchor_usize}. If you see this message, it means our asssumption that the usize could not be zero was incorrect. Please report this error on the github repository of this tool"
+            ),
+        };
+        Ok(anchor)
     }
 
     /// Return the anchor index as a 0-based index into `seq`.
     ///
     /// Returns `None` if the anchor lies outside the stored sequence.
     pub fn anchor_index0(&self) -> Option<usize> {
-        let idx0 = self.anchor().get().checked_sub(1)?;
-        (idx0 < self.context().seq().len()).then_some(idx0)
+        let anchor = self.anchor().ok()?;
+        let idx0 = anchor.get().checked_sub(1)?;
+        Some(idx0)
+        // let idx0 = anchor.get().checked_sub(1)?;
+        // (idx0 < self.context().seq().len()).then_some(idx0)
     }
 
     /// Get the mutation
@@ -122,7 +196,7 @@ impl<B: Base> MutationWithContext<B> {
 
     /// Get the interval of context affected by the mutation
     pub fn mutated_interval(&self) -> Result<Interval> {
-        let pos1 = self.anchor().to_owned();
+        let pos1 = self.anchor()?.to_owned();
         let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
 
         let interval = Interval::new(pos1, pos2)?;

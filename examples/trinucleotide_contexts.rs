@@ -6,7 +6,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mutation = SmallMutation::new(
-        "chr1".to_owned(),
+        "Chr1".to_owned(),
         pos!(2000),
         dna!("A"),
         dna!("C"),
@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         false,
     );
 
-    let interval = Interval::new(pos!(5), pos!(10))?;
+    let interval = Interval::new(pos!(2000), pos!(2000))?;
 
     let context = SourcedSeq::new(
         dna!("ACTGATCGAACGAGCATGCTACGGGGCCGATCGATTATCGATCAGTCA"),
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(Strand::Positive),
     );
 
-    let mutation_with_context = MutationWithContext::new(mutation, context, pos!(10))?;
+    let mutation_with_context = MutationWithContext::new(mutation, context)?;
 
     eprintln!("{mutation_with_context}");
 
