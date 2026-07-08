@@ -204,12 +204,12 @@ pub struct Ansi8Style {
 impl Ansi8Style {
     pub const WILDCARD: Self = Self { fg: 15, bg: 240 };
 
-    pub const ADENINE: Self = Self { fg: 15, bg: 34 };
-    pub const CYTOSINE: Self = Self { fg: 15, bg: 28 };
-    pub const GUANINE: Self = Self { fg: 16, bg: 220 };
-    pub const THYMINE: Self = Self { fg: 15, bg: 160 };
+    pub const ADENINE: Self = Self { fg: 0, bg: 9 };
+    pub const CYTOSINE: Self = Self { fg: 0, bg: 10 };
+    pub const GUANINE: Self = Self { fg: 0, bg: 14 };
+    pub const THYMINE: Self = Self { fg: 0, bg: 11 };
 
-    // Alias to thymine if you intentionally want U and T to share a colour.
+    // Alias to thymine since we often want U and T to share a colour.
     pub const URACIL: Self = Self::THYMINE;
 
     pub const RESET: &'static str = "\x1b[0m";
