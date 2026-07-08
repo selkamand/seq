@@ -88,11 +88,11 @@ impl Interval {
     ///
     /// ```
     /// use seqlib::coords::{Interval, Pos};
+    /// use seqlib::pos
     ///
-    /// let interval = Interval::new(Pos::new(3)?, Pos::new(7)?)?;
+    /// let interval = Interval::new(pos!(2), pos!(5)).unwrap();
     ///
-    /// assert_eq!(*interval.end(), Pos::new(7)?);
-    /// # Ok::<(), seqlib::error::CoordError>(())
+    /// assert_eq!(*interval.end(), pos!(7));
     /// ```
     pub fn end(&self) -> &Pos {
         &self.end
@@ -115,13 +115,10 @@ impl Interval {
     /// let interval = Interval::new(Pos::new(2)?, Pos::new(5)?)?;
     ///
     /// assert_eq!(interval.len(), 4);
-    /// # Ok::<(), seqlib::error::CoordError>(())
     /// ```
     pub fn len(&self) -> usize {
-        self.end
-            .get()
-            .saturating_sub(self.start.get())
-            .saturating_add(1)
+        // this cannot overflow because during construction we ensure end >= start
+        self.end().get() - self.start().get() + 1
     }
 
     /// Returns the interval as 0-based half-open indices.
