@@ -4,6 +4,7 @@ use crate::base::{
 };
 use crate::coords::{Interval, Pos};
 use crate::error::SequenceError;
+use crate::render::SeqStyler;
 use core::fmt;
 
 pub(crate) type Result<T> = std::result::Result<T, SequenceError>;
@@ -592,6 +593,14 @@ impl<B: Base> Seq<B> {
         }
 
         out
+    }
+
+    pub fn format_with_coloured_interval(&self, interval: &Interval) -> String {
+        // If sequence contains the interval start
+        if self.sequence_contains_position(*interval.start()) {}
+
+        //TODO:
+        todo!("Implement coloured interval")
     }
 
     /// Mutate a sequence changing an interval to a new sequence
