@@ -156,3 +156,10 @@ library.
 - No soft-masking or case preservation
 
 `seqlib` is intended to be a **foundation**, not a full bioinformatics toolkit.
+
+---
+
+## Errors
+
+The goal of this library is to always return an explicit and informative Error enum when users attempt to do something unsupported or invalid.
+If any function in the seqlib library panics, this indicates a bug within the library itself! Please report it as an issue in this repository.
