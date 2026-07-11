@@ -71,19 +71,20 @@ impl SeqStyler {
     ///
     ///
     /// ```
-    /// let s = "ACTGCA"
+    /// use seqlib::render::SeqStyler;
+    /// let s = "ACTGCA";
     ///
     /// // Create Styler
     /// let styler = SeqStyler::new()
     ///     .bold()
     ///     .italic()
-    ///     .colour_background(10)
+    ///     .colour_background(10);
     ///
     /// // Paint style onto any type with a Display impl
-    /// let formatted_string = styler::paint(s)
+    /// let formatted_string = styler.paint(s);
     ///
     /// // Print to any terminal that supports standard ANSI codes and 8bit colour
-    /// println!("{formatted_string}")
+    /// println!("{formatted_string}");
     ///
     /// ```
     pub fn paint(&self, seq: impl Display) -> String {
