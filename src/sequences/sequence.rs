@@ -332,6 +332,7 @@ impl<B: Base> Seq<B> {
         self.seq.is_empty()
     }
 
+    /// Get the Position representing the end of the sequence
     pub fn max_pos(&self) -> Pos {
         Pos::new(self.len()).unwrap_or_default()
     }
@@ -486,6 +487,62 @@ impl<B: Base> Seq<B> {
         self.slice(start, end_exclusive)
     }
 
+    /// Returns a borrowed view of the subsequence covered by an [`Interval`].
+    ///
+    /// Unlike [`Seq::subseq_slice`] this function never throws an error.
+    /// If the interval extends beyond the bounds of the sequence, we just return whatever bases
+    /// are covered.
+    /// If the both the start and end of Interval are outsied the sequence bounds, we just return
+    /// an empty slice.
+    ///
+    /// Returns a **read-only, zero-copy** view into the sequence plus a revised interval
+    /// representing the part of the sequence that was actually returned (end clamped to sequence
+    /// bounds)
+    ///
+    /// The returned slice:
+    /// - contains the bases covered by the interval
+    /// - does **not** allocate or copy
+    /// - is tied to the lifetime of the original sequence
+    /// - does **not** guarantee the length matches the interval size
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use seqlib::{coords::{Pos, Interval}, sequences::{BaseSliceExt, DnaSeq}};
+    ///
+    /// let seq = DnaSeq::new("ACGTAC").unwrap();
+    ///
+    /// // Define interval that extends beyond the sequence
+    /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(100).unwrap()).unwrap(); // 2..=4
+    ///
+    /// // Define interval that extends beyond the sequence
+    /// let slice = seq.subseq_covered_slice(&interval).unwrap();
+    /// assert_eq!(slice.to_string_upper(), "CGT");
+    /// ```
+    pub fn subseq_covered_slice(&self, interval: &Interval) -> (&[B], Option<Interval>) {
+        // Convert interval (1-based inclusive) to Rust indices (0-based, end-exclusive).
+        let start = interval.start().as_0based_index();
+        if start > self.len() - 1 {
+            return (&self.seq[0..0], None);
+        }
+
+        let sequence_contains_end_position = self.sequence_contains_position(*interval.end());
+        let end_exclusive = match sequence_contains_end_position {
+            true => interval.end().as_0based_index() + 1,
+            false => self.len(),
+        };
+
+        let new_interval = match sequence_contains_end_position {
+            true => interval.clone(),
+            false => Interval::new(interval.start().to_owned(), self.max_pos().to_owned())
+                .expect("Bug in subseq_covered_slice: creation of new end"),
+        };
+
+        let slice = self.slice(start, end_exclusive).expect("Bug in subseq_covered_slice: slicing should never fail because interval end should be clamped to seq size in above code");
+        (slice, Some(new_interval))
+    }
+
     /// Extracts a subsequence defined by an [`Interval`] as a new, independent [`Seq`].
     ///
     /// This is the classic “subsequence” operation for biologists:
@@ -595,12 +652,62 @@ impl<B: Base> Seq<B> {
         out
     }
 
-    pub fn format_with_coloured_interval(&self, interval: &Interval) -> String {
-        // If sequence contains the interval start
-        if self.sequence_contains_position(*interval.start()) {}
+    /// Format a sequence using one style inside `interval` and another
+    /// style outside it.
+    ///
+    /// The interval uses 1-based inclusive coordinates. If the interval
+    /// extends beyond the end of the sequence, it is clamped to the
+    /// sequence length. If it starts beyond the sequence, the entire
+    /// sequence receives `outside_style`.
+    pub fn format_interval_with_styles(
+        &self,
+        interval: &Interval,
+        outside_style: &SeqStyler,
+        inside_style: &SeqStyler,
+    ) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
 
-        //TODO:
-        todo!("Implement coloured interval")
+        // Interval start is 1-based inclusive.
+        let start = interval.start().as_0based_index();
+
+        // There is no overlap with the sequence.
+        if start >= self.len() {
+            return outside_style.paint(self);
+        }
+
+        // For a 1-based inclusive end coordinate, the numeric position is
+        // also the corresponding 0-based exclusive slice boundary.
+        //
+        // For example:
+        // interval 3..=5 -> Rust slice 2..5
+        let end_exclusive = interval.end().get().min(self.len());
+
+        let (before, remaining) = self.as_slice().split_at(start);
+        let (within, after) = remaining.split_at(end_exclusive - start);
+
+        let mut output = String::new();
+
+        // Avoid emitting empty ANSI sections.
+        if !before.is_empty() {
+            output.push_str(&outside_style.paint(before.to_string_upper()));
+        }
+
+        if !within.is_empty() {
+            output.push_str(&inside_style.paint(within.to_string_upper()));
+        }
+
+        if !after.is_empty() {
+            output.push_str(&outside_style.paint(after.to_string_upper()));
+        }
+
+        output
+    }
+
+    /// Highlight an interval using the standard sequence styles.
+    pub fn format_with_coloured_interval(&self, interval: &Interval) -> String {
+        self.format_interval_with_styles(interval, &SeqStyler::DIMMED, &SeqStyler::HIGHLIGHT)
     }
 
     /// Mutate a sequence changing an interval to a new sequence
@@ -760,7 +867,7 @@ impl<B: DegenerateBase> Seq<B> {
     /// assert!(IupacDnaSeq::new("NNNNNN").unwrap().is_palindromic_checked().is_err());
     ///
     /// // Odd length -> Ok(false)
-    /// assert!(IupacDnaSeq::new("AAA").unwrap().is_palindromic_checked() == Ok(false));
+    /// assert!(IupacDnaSeq::new("AAA").unwrap().s_palindromic_checked() == Ok(false));
     /// ```
     pub fn is_palindromic_checked(&self) -> Result<bool> {
         // Any ambiguous characters make it impossible to identify palindromes with certainty.
