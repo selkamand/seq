@@ -168,10 +168,9 @@ impl SeqStyler {
         self
     }
 
-    /// Overwrite previous styles by sending format reset ANSI string before applying
-    /// any of the styles
-    pub const fn fixed_width(mut self) -> Self {
-        self.fixed_width = true;
+    /// Disable fixed-width printing
+    pub const fn disable_fixed_width(mut self) -> Self {
+        self.fixed_width = false;
         self
     }
 
@@ -237,4 +236,3 @@ impl SeqStyler {
         .colour_foreground(15)
         .colour_background(240);
 }
-

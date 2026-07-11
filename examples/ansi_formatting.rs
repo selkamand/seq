@@ -20,7 +20,6 @@ fn main() {
 
     // Step 2: build up a styler with all the settings
     let styler = SeqStyler::new()
-        .fixed_width()
         .colour_background(44)
         .colour_foreground(20)
         .bold();
@@ -33,12 +32,9 @@ fn main() {
     println!("{ansi_string}");
 
     // The real power comes when we make different stylers for different parts of our sequence
-    let styler_special_base = SeqStyler::new().fixed_width().colour_background(9).bold();
+    let styler_special_base = SeqStyler::new().colour_background(9).bold();
 
-    let styler_boring_bases = SeqStyler::new()
-        .fixed_width()
-        .colour_foreground(255)
-        .colour_background(8);
+    let styler_boring_bases = SeqStyler::new().colour_foreground(255).colour_background(8);
 
     // Apply formatters to different parts of a string
     let formatted_seq = format!(
