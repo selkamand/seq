@@ -9,7 +9,7 @@ fn main() {
 
     // Highlight the 4th element in sequence vector (5th base in sequence since rust vectors are
     // 0-based)
-    println!("Highlight the 4th base in the sequence");
+    println!("Highlight the 4th base in the sequence (with text)");
     let position = pos!(4);
     println!("{}", seq.format_with_highlight_pos(Some(position)));
 
