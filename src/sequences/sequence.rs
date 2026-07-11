@@ -509,16 +509,17 @@ impl<B: Base> Seq<B> {
     /// # Examples
     ///
     /// ```rust
-    /// use seqlib::{coords::{Pos, Interval}, sequences::{BaseSliceExt, DnaSeq}};
+    /// use seqlib::{coords::{Pos, Interval}, sequences::{BaseSliceExt, DnaSeq}, pos};
     ///
     /// let seq = DnaSeq::new("ACGTAC").unwrap();
     ///
     /// // Define interval that extends beyond the sequence
     /// let interval = Interval::new(Pos::new(2).unwrap(), Pos::new(100).unwrap()).unwrap(); // 2..=4
     ///
-    /// // Define interval that extends beyond the sequence
-    /// let slice = seq.subseq_covered_slice(&interval).unwrap();
-    /// assert_eq!(slice.to_string_upper(), "CGT");
+    /// // Grab the slice of sequence covered by the range and the corresponding clamped interval
+    /// let (slice, clamped_interval) = seq.subseq_covered_slice(&interval);
+    /// assert_eq!(slice.to_string_upper(), "CGTAC");
+    /// assert_eq!(clamped_interval, Some(Interval::new(pos!(2), pos!(6)).unwrap()));
     /// ```
     pub fn subseq_covered_slice(&self, interval: &Interval) -> (&[B], Option<Interval>) {
         // Convert interval (1-based inclusive) to Rust indices (0-based, end-exclusive).
@@ -867,7 +868,7 @@ impl<B: DegenerateBase> Seq<B> {
     /// assert!(IupacDnaSeq::new("NNNNNN").unwrap().is_palindromic_checked().is_err());
     ///
     /// // Odd length -> Ok(false)
-    /// assert!(IupacDnaSeq::new("AAA").unwrap().s_palindromic_checked() == Ok(false));
+    /// assert!(IupacDnaSeq::new("AAA").unwrap().is_palindromic_checked() == Ok(false));
     /// ```
     pub fn is_palindromic_checked(&self) -> Result<bool> {
         // Any ambiguous characters make it impossible to identify palindromes with certainty.
