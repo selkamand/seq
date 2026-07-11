@@ -276,9 +276,12 @@ impl<B: Base> MutationWithContext<B> {
 
     /// Create a string representing context sequence before mutation, with mutated region coloured
     /// using ansi codes.
-    pub fn format_reference_context_highlight_mutated_bases(&self) -> String {
+    pub fn format_context_sequence_and_highlight_mutated_bases(&self) -> String {
         self.context()
             .seq()
             .format_with_coloured_interval(&self.mutated_interval())
+    }
+    pub fn format_mutated_sequence_and_highlight_mutated_bases(&self) -> String {
+        todo!("Finish implementation -> Apply mutation and highlight")
     }
 }
