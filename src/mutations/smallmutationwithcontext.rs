@@ -191,18 +191,14 @@ impl<B: Base> MutationWithContext<B> {
     }
 
     /// Is the context sequence viable given the mutation reference allele and anchor position.
-    /// Returns true if:
-    /// 1. the context sequence matchs the mutation reference sequence at the expected region
-    ///    (based on anchor position and reference size)
-    /// 2. The expected mutated interval is outside the context sequence
-    ///
+    /// Returns true if the context sequence matchs the mutation reference sequence at the expected region
+    /// (based on anchor position and reference size)
     /// Returns false in all other cases
     fn reference_bases_viable(&self) -> bool {
         let interval = self.mutated_interval();
 
-        let mutated_bases = match self.context().seq().subseq(&interval) {
-            Ok(s) => s,
-            Err(_) => return true,
+        let Ok(mutated_bases) = self.context().seq().subseq(&interval) else {
+            return false;
         };
 
         mutated_bases == *self.mutation().reference()
@@ -276,5 +272,13 @@ impl<B: Base> MutationWithContext<B> {
         let altstring = self.apply_mutation().to_string();
 
         format!("{refstring}\n{altstring}")
+    }
+
+    /// Create a string representing context sequence before mutation, with mutated region coloured
+    /// using ansi codes.
+    pub fn format_reference_context_highlight_mutated_bases(&self) -> String {
+        self.context()
+            .seq()
+            .format_with_coloured_interval(&self.mutated_interval())
     }
 }
