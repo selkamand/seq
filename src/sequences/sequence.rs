@@ -341,7 +341,7 @@ impl<B: Base> Seq<B> {
     pub fn is_interval_valid(&self, interval: &Interval) -> bool {
         match self.is_empty() {
             true => false,
-            false => *interval.end() < self.max_pos(),
+            false => *interval.end() <= self.max_pos(),
         }
     }
 
