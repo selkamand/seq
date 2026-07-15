@@ -653,6 +653,11 @@ impl<B: Base> Seq<B> {
         out
     }
 
+    /// Format the whole sequence using a single style.
+    pub fn format_with_style(&self, style: &SeqStyler) -> String {
+        style.paint(self.to_string_upper())
+    }
+
     /// Format a sequence using one style inside `interval` and another
     /// style outside it.
     ///
