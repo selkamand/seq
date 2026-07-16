@@ -27,7 +27,6 @@ use crate::error::BaseError;
 pub trait Base: Copy + Eq + fmt::Debug + fmt::Display + Sized {
     /// Name of the alphabet
     const ALPHABET: Alphabet;
-
     /// Return the complement of this base.
     ///
     /// Examples (DNA):
@@ -89,6 +88,14 @@ pub trait Base: Copy + Eq + fmt::Debug + fmt::Display + Sized {
     /// Returns [`BaseError::AmbiguousChemicalClass`] if the chemical class is unclear
     /// (happens when iupac base is ambiguous)
     fn try_chemical_class(self) -> Result<ChemClass, BaseError>;
+
+    /// Get 8-bit ANSI colour codes for foreground and background for better downstream terminal rendering.
+    fn ansi8_style(self) -> Ansi8Style;
+
+    /// Turn base into a colourised string based on Ansi8Style
+    fn to_colourised_string(self) -> String {
+        self.ansi8_style().paint(self)
+    }
 }
 
 /// Chemical class of a nucleotide base (purine/pyrimidine).
@@ -186,6 +193,34 @@ pub enum RnaBase {
     C,
     G,
     U,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Ansi8Style {
+    pub fg: u8,
+    pub bg: u8,
+}
+
+impl Ansi8Style {
+    pub const WILDCARD: Self = Self { fg: 15, bg: 240 };
+
+    pub const ADENINE: Self = Self { fg: 0, bg: 9 };
+    pub const CYTOSINE: Self = Self { fg: 0, bg: 10 };
+    pub const GUANINE: Self = Self { fg: 0, bg: 14 };
+    pub const THYMINE: Self = Self { fg: 0, bg: 11 };
+
+    // Alias to thymine since we often want U and T to share a colour.
+    pub const URACIL: Self = Self::THYMINE;
+
+    pub const RESET: &'static str = "\x1b[0m";
+
+    /// Generate a string of text colourised based on fg and bg ansi codes (colours)
+    pub fn paint(self, text: impl core::fmt::Display) -> String {
+        format!(
+            "\x1b[38;5;{}m\x1b[48;5;{}m {:^1} \x1b[0m",
+            self.fg, self.bg, text
+        )
+    }
 }
 
 impl Base for IupacDnaBase {
@@ -309,6 +344,16 @@ impl Base for IupacDnaBase {
             }),
         }
     }
+
+    fn ansi8_style(self) -> Ansi8Style {
+        match self {
+            IupacDnaBase::A => Ansi8Style::ADENINE,
+            IupacDnaBase::C => Ansi8Style::CYTOSINE,
+            IupacDnaBase::G => Ansi8Style::GUANINE,
+            IupacDnaBase::T => Ansi8Style::THYMINE,
+            _ => Ansi8Style::WILDCARD,
+        }
+    }
 }
 
 impl fmt::Display for IupacDnaBase {
@@ -391,6 +436,15 @@ impl Base for DnaBase {
             DnaBase::G => Ok(ChemClass::Purine),
             DnaBase::C => Ok(ChemClass::Pyrimidine),
             DnaBase::T => Ok(ChemClass::Pyrimidine),
+        }
+    }
+
+    fn ansi8_style(self) -> Ansi8Style {
+        match self {
+            DnaBase::A => Ansi8Style::ADENINE,
+            DnaBase::C => Ansi8Style::CYTOSINE,
+            DnaBase::G => Ansi8Style::GUANINE,
+            DnaBase::T => Ansi8Style::THYMINE,
         }
     }
 }
@@ -550,6 +604,15 @@ impl Base for RnaBase {
     fn is_unambiguous(self) -> bool {
         !self.is_ambiguous()
     }
+
+    fn ansi8_style(self) -> Ansi8Style {
+        match self {
+            RnaBase::A => Ansi8Style::ADENINE,
+            RnaBase::C => Ansi8Style::CYTOSINE,
+            RnaBase::G => Ansi8Style::GUANINE,
+            RnaBase::U => Ansi8Style::URACIL,
+        }
+    }
 }
 
 impl Base for IupacRnaBase {
@@ -671,6 +734,16 @@ impl Base for IupacRnaBase {
             IupacRnaBase::V => Err(BaseError::AmbiguousChemicalClass {
                 base: IupacRnaBase::V.to_char(),
             }),
+        }
+    }
+
+    fn ansi8_style(self) -> Ansi8Style {
+        match self {
+            IupacRnaBase::A => Ansi8Style::ADENINE,
+            IupacRnaBase::C => Ansi8Style::CYTOSINE,
+            IupacRnaBase::G => Ansi8Style::GUANINE,
+            IupacRnaBase::U => Ansi8Style::URACIL,
+            _ => Ansi8Style::WILDCARD,
         }
     }
 }

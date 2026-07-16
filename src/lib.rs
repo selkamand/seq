@@ -34,4 +34,5 @@ pub mod base;
 pub mod coords;
 pub mod error;
 pub mod mutations;
+pub mod render;
 pub mod sequences;

@@ -26,14 +26,19 @@ impl<B: Base> std::fmt::Display for MutationWithContext<B> {
 }
 
 impl<B: Base> MutationWithContext<B> {
-    /// Construct a new [`MutationWithContext`] struct
+    /// Construct a new [`MutationWithContext`]
     ///
-    /// ## Errors
-    /// May return a [`MutationError::MismatchedStrandOption`] error if a strand is specified
-    /// for mutation or context but not both.
+    /// Describing a [`SmallMutation`] and its local sequence context.
+    /// Mutation must occur within the region described by context.
+    /// If strand is supplied, it must be supplied for both the mutation and the context.
     ///
     /// Note if strand is supplied for both but the value itself differs, the context will be
-    /// reverse complemented so they match
+    /// reverse complemented so they match.
+    ///
+    /// ## Errors
+    /// - Returns a [`MutationError::MismatchedStrandOption`] error if a strand is specified for mutation or context but not both.
+    /// - Returns a [`MutationError::MismatchedChromosomeName`] if chromosome names don't match.
+    /// - Returns a [`MutationError::MutationPositionOutsideInterval`] if mutation position is outside the region described by the context.
     pub fn new(mutation: SmallMutation<B>, context: SourcedSeq<B>) -> Result<Self> {
         // Strand comparison
         let mutstrand = mutation.strand();
@@ -63,28 +68,18 @@ impl<B: Base> MutationWithContext<B> {
             context: normalised_context,
         };
 
-        // Additiona validations:
-        // Check chromosome names in mutation and sequence context matches
+        // Enforce invariants
         mutwithcontext.check_chromosome_names_match()?;
+        mutwithcontext.check_mutation_position_within_sequence_context_interval()?;
+        mutwithcontext.check_reference_bases_viable()?;
 
-        // If reference bases don't match the expected context subsequence return an Error
-        if !mutwithcontext.reference_bases_viable() {
-            return Err(MutationError::MismatchedReferenceAlleleAndContextSeq {
-                mutation: mutwithcontext.mutation().chrom_pos_ref_alt(),
-                context: mutwithcontext
-                    .context()
-                    .seq()
-                    .format_with_highlight_interval(
-                        mutwithcontext.mutated_interval().ok().as_ref(),
-                    ),
-            });
-        }
+        // If all pass return context
         Ok(mutwithcontext)
     }
 
     // < Validity Checks>
 
-    /// Check whether chromosome names match and return error if not
+    /// Returns an [`MutationError::MismatchedChromosomeName`] if chromosome names don't match
     fn check_chromosome_names_match(&self) -> Result<()> {
         let mutated_chromosome = self.mutation().chromosome();
         let context_chromosome = self.context().region().name();
@@ -99,6 +94,8 @@ impl<B: Base> MutationWithContext<B> {
         Ok(())
     }
 
+    /// Returns an [`MutationError::MutationPositionOutsideInterval`] if mutation position is
+    /// outside the region described by the context
     fn check_mutation_position_within_sequence_context_interval(&self) -> Result<()> {
         let mutation_position = self.mutation().position();
         let region = self.context().region();
@@ -116,61 +113,45 @@ impl<B: Base> MutationWithContext<B> {
         Ok(())
     }
 
+    fn check_reference_bases_viable(&self) -> Result<()> {
+        if !self.reference_bases_viable() {
+            return Err(MutationError::MismatchedReferenceAlleleAndContextSeq {
+                mutation: self.mutation().chrom_pos_ref_alt(),
+                context: self
+                    .context()
+                    .seq()
+                    .format_with_highlight_interval(Some(&self.mutated_interval())),
+            });
+        }
+        Ok(())
+    }
     // < Getters >
 
-    /// Sequence-local 1-based position within `context sequence` describing where the mutation
-    /// starts.
+    /// Get context sequence local 1-based start position of mutation.
     ///
-    /// For example, `anchor of Pos(1) means mutation of context() `seq[0]`.
+    /// For example, anchor of Pos(1) means the mutation affect the first base of sequence context.
+    /// See [`MutationWithContext::mutated_interval`] to get the full interval of bases in sequence
+    /// context that are mutated.
     ///
-    /// Will return an error if the Position of the mutation is outside the region context
-    pub fn anchor(&self) -> Result<Pos> {
-        // Variables for convenience
-        let mutation_position = self.mutation().position();
-        let region = self.context().region();
-        let context_start = region.interval().start();
-        let context_end = region.interval().end();
+    /// # Panics
+    /// Panics only if the invariants established by [`MutationWithContext::new`]
+    /// have been violated, which indicates an internal bug.
+    pub fn anchor(&self) -> Pos {
+        let mutation_position = self.mutation().position().get();
+        let context_start = self.context().region().interval().start().get();
 
-        // Validations:
-        self.check_chromosome_names_match()?;
-        self.check_mutation_position_within_sequence_context_interval()?;
+        let local_position = mutation_position
+            .checked_sub(context_start)
+            .and_then(|offset| offset.checked_add(1))
+            .expect(
+                "MutationWithContext invariant violated: \
+             mutation position must lie within the context region",
+            );
 
-        // If mutation position is at the first base just return 1
-        if mutation_position == *context_start {
-            return Ok(crate::pos!(1));
-        }
-
-        // If mutation position is at the end base just return end
-        if mutation_position == *context_end {
-            let len = region.interval().len_nonzero();
-            let anchor = Pos::from(len);
-            return Ok(anchor);
-        }
-
-        // Create the 'anchor' position
-        // Note we use plain + and - here instead of checked/saturated operations since above 2 if
-        // statements guarantee usize won't be negative
-        let anchor_usize =
-            context_start.get() + mutation_position.get().abs_diff(context_start.get()) - 1;
-
-        let anchor = match Pos::new(anchor_usize) {
-            Ok(p) => p,
-            Err(_) => unreachable!(
-                "Could not create anchor from usize {anchor_usize}. If you see this message, it means our asssumption that the usize could not be zero was incorrect. Please report this error on the github repository of this tool"
-            ),
-        };
-        Ok(anchor)
-    }
-
-    /// Return the anchor index as a 0-based index into `seq`.
-    ///
-    /// Returns `None` if the anchor lies outside the stored sequence.
-    pub fn anchor_index0(&self) -> Option<usize> {
-        let anchor = self.anchor().ok()?;
-        let idx0 = anchor.get().checked_sub(1)?;
-        Some(idx0)
-        // let idx0 = anchor.get().checked_sub(1)?;
-        // (idx0 < self.context().seq().len()).then_some(idx0)
+        Pos::new(local_position).expect(
+            "MutationWithContext invariant violated: \
+         a validated local mutation position must be non-zero",
+        )
     }
 
     /// Get the mutation
@@ -183,59 +164,59 @@ impl<B: Base> MutationWithContext<B> {
         &self.context
     }
 
-    // pub fn ref_trinuc(&self) -> Option<&[B]> {
-    //     self.context.as_ref()?.kmer_centered_on_anchor(3)
-    // }
-    //
-    // pub fn ref_pentanuc(&self) -> Option<&[B]> {
-    //     if self.mutation.class() != SmallMutationType::SNV {
-    //         return None;
-    //     }
-    //     self.context.as_ref()?.kmer_centered_on_anchor(5)
-    // }
-
     /// Get the interval of context affected by the mutation
-    pub fn mutated_interval(&self) -> Result<Interval> {
-        let pos1 = self.anchor()?.to_owned();
-        let pos2 = pos1.try_add(self.mutation().reflen().saturating_sub(1))?;
+    ///
+    ///
+    /// Returns the Interval representing the mutated position (with respect to the context
+    /// sequence)
+    ///
+    /// # Panics:
+    /// Panics only if the invariants established by [`MutationWithContext::new`]
+    /// have been violated or mutation position + reflength offset creates an overflow error, which indicate internal bugs.
+    pub fn mutated_interval(&self) -> Interval {
+        let start = self.anchor();
 
-        let interval = Interval::new(pos1, pos2)?;
+        let offset = self
+            .mutation()
+            .reflen()
+            .checked_sub(1)
+            .expect("reference alleles must contain at least one base");
 
-        Ok(interval)
+        let end = start
+            .try_add(offset)
+            .expect("mutation interval position overflowed usize");
+
+        Interval::new(start, end)
+            .expect("start plus a non-negative offset must form a valid interval")
     }
 
     /// Is the context sequence viable given the mutation reference allele and anchor position.
-    /// Returns true if:
-    /// 1. the context sequence matchs the mutation reference sequence at the expected region
-    ///    (based on anchor position and reference size)
-    /// 2. The expected mutated interval is outside the context sequence
-    ///
+    /// Returns true if the context sequence matchs the mutation reference sequence at the expected region
+    /// (based on anchor position and reference size)
     /// Returns false in all other cases
-    pub fn reference_bases_viable(&self) -> bool {
-        let interval = match self.mutated_interval() {
-            Ok(i) => i,
-            Err(_) => return false,
-        };
+    fn reference_bases_viable(&self) -> bool {
+        let interval = self.mutated_interval();
 
-        let mutated_bases = match self.context().seq().subseq(&interval) {
-            Ok(s) => s,
-            Err(_) => return true,
+        let Ok(mutated_bases) = self.context().seq().subseq(&interval) else {
+            return false;
         };
 
         mutated_bases == *self.mutation().reference()
     }
 
     /// Apply a mutation to a sequence context
-    pub fn apply_mutation(&self) -> Result<Seq<B>> {
+    ///
+    /// # Panics
+    /// Panics only if the invariants established by [`MutationWithContext::new`] which indicates
+    /// internal bugs.
+    pub fn apply_mutation(&self) -> Seq<B> {
         let mut seq = self.context().seq().clone();
 
-        let interval = self.mutated_interval()?;
+        let interval = self.mutated_interval();
 
-        seq.mutate(interval, self.mutation().alternative())
-            .map_err(|source| MutationError::FailedToApplyMutationToContext {
-                mutation: self.mutation().chrom_pos_ref_alt(),
-                source,
-            })
+        seq.mutate(interval, self.mutation().alternative()).expect(
+            "any mutation in mutation_with_context to be possible to apply to the reference seq",
+        )
     }
 
     /// Borrow a reference k-mer of length `k` centered on the anchor position.
@@ -250,7 +231,6 @@ impl<B: Base> MutationWithContext<B> {
     ///
     /// ## `None` is returned when:
     /// - `k` is zero or even
-    /// - the anchor lies outside the stored sequence
     /// - there is insufficient flanking sequence on either side of the anchor
     ///
     /// ## Notes
@@ -261,7 +241,7 @@ impl<B: Base> MutationWithContext<B> {
         if k == 0 || k.is_multiple_of(2) {
             return None;
         }
-        let center = self.anchor_index0()?;
+        let center = self.anchor().as_0based_index();
         let half = k / 2;
         let start = center.checked_sub(half)?;
         let end = center + half + 1;
@@ -284,21 +264,24 @@ impl<B: Base> MutationWithContext<B> {
         let ctx = self.context();
 
         // Create formatted reference string
-        let refstring = if let Ok(interval) = self.mutated_interval() {
-            ctx.seq().format_with_highlight_interval(Some(&interval))
-        } else {
-            ctx.seq()
-                .format_with_highlight_pos(Some(self.mutation().position()))
-        };
+        let refstring = ctx
+            .seq()
+            .format_with_highlight_interval(Some(&self.mutated_interval()));
 
         // Create formatted altstring
-        let mutated_sequence = self.apply_mutation();
-
-        let altstring = match mutated_sequence {
-            Ok(alt) => alt.to_string(),
-            Err(e) => format!("Failed to apply mutation: {e}"),
-        };
+        let altstring = self.apply_mutation().to_string();
 
         format!("{refstring}\n{altstring}")
+    }
+
+    /// Create a string representing context sequence before mutation, with mutated region coloured
+    /// using ansi codes.
+    pub fn format_context_sequence_and_highlight_mutated_bases(&self) -> String {
+        self.context()
+            .seq()
+            .format_with_coloured_interval(&self.mutated_interval())
+    }
+    pub fn format_mutated_sequence_and_highlight_mutated_bases(&self) -> String {
+        todo!("Finish implementation -> Apply mutation and highlight")
     }
 }
