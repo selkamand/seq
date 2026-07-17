@@ -318,6 +318,18 @@ impl<B: Base> SmallMutation<B> {
         )
     }
 
+    /// Render `chromosome:position REF>ALT` with alleles coloured based on their default ANSI
+    /// style (based on sequence)
+    pub fn format_with_colour(&self) -> String {
+        format!(
+            "{}:{} {}>{}",
+            self.chromosome(),
+            self.position(),
+            self.reference().format_with_colour(),
+            self.alternative().format_with_colour()
+        )
+    }
+
     /// Reverse complement mutation
     /// Reverse complements reference and alternative sequence and flips strand
     /// field if present.

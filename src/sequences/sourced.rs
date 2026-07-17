@@ -99,4 +99,15 @@ impl<B: Base> SourcedSeq<B> {
             self.strand = Some(unwrapped_strand.flip())
         };
     }
+
+    /// Format the sourced sequence with ansi colouring of the sequence
+    pub fn format_with_colour(&self) -> String {
+        format!("{} | from: {} ({})",
+            self.seq.format_with_colour(),
+            self.region,
+            self.strand
+                .map(|x| x.to_string())
+                .unwrap_or("no strand".to_string())
+)
+    }
 }
