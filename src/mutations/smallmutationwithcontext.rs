@@ -3,6 +3,7 @@ use crate::{
     coords::{Interval, Pos},
     error::MutationError,
     mutations::SmallMutation,
+    render::SeqStyler,
     sequences::{Seq, SourcedSeq},
 };
 
@@ -219,6 +220,46 @@ impl<B: Base> MutationWithContext<B> {
         )
     }
 
+    /// Apply a mutation to a sequence context and return the interval occupied by ALT bases.
+    ///
+    /// The returned interval uses 1-based coordinates local to the mutated sequence.
+    /// Mutations with an empty ALT allele return `None` because no ALT bases are present in the
+    /// mutated sequence.
+    ///
+    /// # Panics
+    /// Panics only if the invariants established by [`MutationWithContext::new`] which indicates
+    /// internal bugs.
+    pub fn apply_mutation_with_alt_interval(&self) -> (Seq<B>, Option<Interval>) {
+        let mut seq = self.context().seq().clone();
+
+        let interval = self.mutated_interval();
+
+        let mutated = seq.mutate(interval, self.mutation().alternative()).expect(
+            "any mutation in mutation_with_context to be possible to apply to the reference seq",
+        );
+
+        let alt_interval = if self.mutation().altlen() == 0 {
+            None
+        } else {
+            let start = self.anchor();
+            let end = start
+                .try_add(
+                    self.mutation()
+                        .altlen()
+                        .checked_sub(1)
+                        .expect("non-empty alternative alleles must contain at least one base"),
+                )
+                .expect("mutated interval position overflowed usize");
+
+            Some(
+                Interval::new(start, end)
+                    .expect("start plus a non-negative offset must form a valid interval"),
+            )
+        };
+
+        (mutated, alt_interval)
+    }
+
     /// Borrow a reference k-mer of length `k` centered on the anchor position.
     ///
     /// The anchor base lies exactly at the center of the returned k-mer.
@@ -282,6 +323,185 @@ impl<B: Base> MutationWithContext<B> {
             .format_with_coloured_interval(&self.mutated_interval())
     }
     pub fn format_mutated_sequence_and_highlight_mutated_bases(&self) -> String {
-        todo!("Finish implementation -> Apply mutation and highlight")
+        let (mutated, alt_interval) = self.apply_mutation_with_alt_interval();
+
+        if let Some(interval) = alt_interval {
+            mutated.format_with_coloured_interval(&interval)
+        } else {
+            mutated.format_with_style(&SeqStyler::DIMMED)
+        }
+    }
+
+    /// Render the reference context and mutated context as two ANSI-coloured lines.
+    pub fn format_with_colour(&self) -> String {
+        format!(
+            "Mutation [{}]\nreference: {}\nmutated:   {}",
+            self.mutation.format_with_colour(),
+            self.format_context_sequence_and_highlight_mutated_bases(),
+            self.format_mutated_sequence_and_highlight_mutated_bases()
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        base::DnaBase,
+        coords::{Region, Strand},
+        sequences::DnaSeq,
+    };
+
+    fn dna_mutation_with_context(
+        position: usize,
+        reference: &str,
+        alternative: &str,
+    ) -> MutationWithContext<DnaBase> {
+        let mutation = SmallMutation::new(
+            "chr1".to_string(),
+            Pos::new(position).unwrap(),
+            DnaSeq::new(reference).unwrap(),
+            DnaSeq::new(alternative).unwrap(),
+            Some(Strand::Positive),
+            false,
+            true,
+        );
+        let context = SourcedSeq::new(
+            DnaSeq::new("ACGTACGT").unwrap(),
+            Region::new(
+                "chr1",
+                Interval::new(Pos::new(100).unwrap(), Pos::new(107).unwrap()).unwrap(),
+            ),
+            Some(Strand::Positive),
+        );
+
+        MutationWithContext::new(mutation, context).unwrap()
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_snv_alt_base() {
+        let mutation = dna_mutation_with_context(103, "T", "A");
+        let mutated = DnaSeq::new("ACGAACGT").unwrap();
+        let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_mnv_alt_bases() {
+        let mutation = dna_mutation_with_context(103, "TAC", "GCA");
+        let mutated = DnaSeq::new("ACGGCAGT").unwrap();
+        let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(6).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_entire_insertion_alt_allele() {
+        let mutation = dna_mutation_with_context(103, "T", "TGG");
+        let mutated = DnaSeq::new("ACGTGGACGT").unwrap();
+        let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(6).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_non_empty_deletion_alt_allele() {
+        let mutation = dna_mutation_with_context(103, "TAC", "T");
+        let mutated = DnaSeq::new("ACGTGT").unwrap();
+        let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_dims_zero_length_alt_without_highlighted_bases() {
+        let mutation = dna_mutation_with_context(103, "TAC", "");
+        let mutated = DnaSeq::new("ACGGT").unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, None);
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_style(&SeqStyler::DIMMED)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_shorter_replacement_alt_allele() {
+        let mutation = dna_mutation_with_context(103, "TAC", "G");
+        let mutated = DnaSeq::new("ACGGGT").unwrap();
+        let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_first_base_alt_allele() {
+        let mutation = dna_mutation_with_context(100, "A", "G");
+        let mutated = DnaSeq::new("GCGTACGT").unwrap();
+        let interval = Interval::new(Pos::new(1).unwrap(), Pos::new(1).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
+    }
+
+    #[test]
+    fn format_mutated_sequence_highlights_last_base_alt_allele() {
+        let mutation = dna_mutation_with_context(107, "T", "A");
+        let mutated = DnaSeq::new("ACGTACGA").unwrap();
+        let interval = Interval::new(Pos::new(8).unwrap(), Pos::new(8).unwrap()).unwrap();
+        let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
+
+        assert_eq!(applied, mutated);
+        assert_eq!(alt_interval, Some(interval.clone()));
+
+        assert_eq!(
+            mutation.format_mutated_sequence_and_highlight_mutated_bases(),
+            mutated.format_with_coloured_interval(&interval)
+        );
     }
 }
