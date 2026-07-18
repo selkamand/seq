@@ -3,7 +3,7 @@ use seqlib::{
     dna,
     mutations::{DnaSmallMutation, MutationWithContext},
     pos,
-    sequences::{SourcedSeq},
+    sequences::SourcedSeq,
 };
 
 fn main() {
@@ -14,8 +14,6 @@ fn main() {
         dna!("A"),
         dna!("G"),
         Some(Strand::Positive),
-        false,
-        true,
     );
 
     // Print the DNA mutation

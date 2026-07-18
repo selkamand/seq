@@ -213,8 +213,6 @@ mod tests {
             IupacDnaSeq::new(reference).unwrap(),
             IupacDnaSeq::new(alternative).unwrap(),
             None,
-            false,
-            true,
         )
     }
 
@@ -272,8 +270,6 @@ mod tests {
             DnaSeq::new("T").unwrap(),
             DnaSeq::new("G").unwrap(),
             None,
-            false,
-            true,
         );
 
         let sbs = DnaSingleBaseSubstitution::try_from(&mutation).unwrap();

@@ -11,8 +11,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         dna!("A"),
         dna!("C"),
         Some(Strand::Positive),
-        false,
-        false,
     );
 
     let interval = Interval::new(pos!(2000), pos!(2000))?;
