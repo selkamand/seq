@@ -363,8 +363,6 @@ mod tests {
             DnaSeq::new(reference).unwrap(),
             DnaSeq::new(alternative).unwrap(),
             Some(Strand::Positive),
-            false,
-            true,
         );
         let context = SourcedSeq::new(
             DnaSeq::new("ACGTACGT").unwrap(),

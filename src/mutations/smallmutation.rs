@@ -40,22 +40,6 @@ pub struct SmallMutation<B: Base> {
     /// If mutation comes from an unstranded molecule (single stranded DNA / RNA)
     /// or strand is not known can be set to None.
     strand: Option<Strand>,
-
-    /// - `multiallelic` indicates that this mutation originated from a site with multiple ALT
-    ///   alleles (e.g. a VCF record with `ALT=A,C`). It is purely metadata for downstream
-    ///   handling; it does not change coordinate or allele semantics.
-    ///   It does not tell you how this was handled by mutation parsers (e.g. was alt just the
-    ///   first allele, or did the parser read each allele into a separate SmallMutation object)
-    multiallelic: bool,
-
-    /// ## Filter / QC status (`pass`)
-    /// - `pass` indicates whether the source record **passed upstream filtering**.
-    ///   In VCF terms this typically corresponds to the `FILTER` field being `PASS`
-    ///   (or `.` depending on your chosen convention).
-    /// - `pass` is **metadata only**:
-    ///   - it does *not* imply biological validity,
-    ///   - it does *not* change classification (`SNV`/`INDEL`/etc)
-    pass: bool,
 }
 
 // Implement the `fmt::Display` trait for `SmallMutation`.
@@ -70,7 +54,7 @@ impl<B: Base> fmt::Display for SmallMutation<B> {
         // Use the write! macro to format the output.
         write!(
             f,
-            "{}:{} {}>{} (strand: {}, delta: {}; class: {}; multiallelic:{}; pass:{})",
+            "{}:{} {}>{} (strand: {}, delta: {}; class: {})",
             self.chromosome,
             self.position,
             self.reference,
@@ -80,8 +64,6 @@ impl<B: Base> fmt::Display for SmallMutation<B> {
                 .unwrap_or("None".to_string()),
             self.delta(),
             self.class(),
-            self.multiallelic,
-            self.pass
         )
     }
 }
@@ -95,9 +77,6 @@ impl<B: Base> SmallMutation<B> {
     /// In particular, this type:
     /// - assumes `position` is **1-based** (VCF-style coordinates)
     /// - stores `reference` and `alternative` as provided (no trimming/normalization)
-    /// - treats `multiallelic` as an external flag (e.g. derived from a multi-ALT record)
-    /// - treats `pass` as an external flag describing upstream filtering/QC outcome
-    /// - accepts an optional `context` sequence if the caller has already computed it
     ///
     /// If you need allele normalization (left/right trimming of shared prefix/suffix),
     /// do it before constructing this type.
@@ -108,51 +87,23 @@ impl<B: Base> SmallMutation<B> {
     /// - `reference`: reference allele sequence
     /// - `alternative`: alternative allele sequence
     /// - `strand`: Strand
-    /// - `multiallelic`: whether the originating site had multiple ALT alleles
-    /// - `pass`: whether the originating record passed upstream filters/QC
-    /// - `context`: optional context sequence (e.g. trinucleotide context)
     pub fn new(
         chromosome: String,
         position: Pos,
         reference: Seq<B>,
         alternative: Seq<B>,
         strand: Option<Strand>,
-        multiallelic: bool,
-        pass: bool,
     ) -> Self {
         Self {
             chromosome,
             position,
             reference,
             alternative,
-            multiallelic,
-            pass,
             strand,
         }
     }
 
-    /// Create a minimal mutation by specifying Chromosome, Position, Reference and Alt
-    /// Automatically sets other fields to a default (Strand to positive, multiallelic to false,
-    /// pass to true)
-    pub fn new_minimal(
-        chromosome: String,
-        position: Pos,
-        reference: Seq<B>,
-        alternative: Seq<B>,
-    ) -> Self {
-        Self {
-            chromosome,
-            position,
-            reference,
-            alternative,
-            multiallelic: false,
-            pass: true,
-            strand: Some(Strand::Positive),
-        }
-    }
-
     // --- Accessors (read-only) ---
-
     /// Returns the chromosome / contig name (e.g. `"chr1"`).
     pub fn chromosome(&self) -> &str {
         &self.chromosome
@@ -182,27 +133,7 @@ impl<B: Base> SmallMutation<B> {
         self.strand.as_ref()
     }
 
-    /// Returns whether this mutation originated from a multi-allelic site.
-    ///
-    /// This is metadata (e.g. a VCF record with multiple ALT alleles) and does not change
-    /// coordinate or allele semantics.
-    pub fn is_multiallelic(&self) -> bool {
-        self.multiallelic
-    }
-
-    /// Returns whether this mutation passed upstream filtering/QC.
-    ///
-    /// In VCF terms, this commonly corresponds to the `FILTER` field being `PASS`
-    /// (and sometimes `.` depending on the caller’s convention).
-    ///
-    /// This is metadata only; downstream code should decide how to handle non-passing
-    /// mutations explicitly.
-    pub fn is_pass(&self) -> bool {
-        self.pass
-    }
-
     // --- Computed Properties (read-only) ---
-
     /// Return the length of the reference allele in bases.
     ///
     /// This is a convenience wrapper around [`Seq::len`].
@@ -216,6 +147,7 @@ impl<B: Base> SmallMutation<B> {
     pub fn altlen(&self) -> usize {
         self.alternative.len()
     }
+
     /// Return the signed size change implied by this mutation.
     ///
     /// Defined as:
@@ -302,8 +234,6 @@ impl<B: Base> SmallMutation<B> {
     ///     DnaSeq::new("A").unwrap(),
     ///     DnaSeq::new("G").unwrap(),
     ///     Some(Strand::Positive),
-    ///     false,
-    ///     true,
     /// );
     ///
     /// assert_eq!(m.chrom_pos_ref_alt(), "chr1:123 A>G");
@@ -343,8 +273,6 @@ impl<B: Base> SmallMutation<B> {
             reference: self.reference.reverse_complement(),
             alternative: self.alternative.reverse_complement(),
             strand: newstrand,
-            multiallelic: self.multiallelic,
-            pass: self.pass,
         }
     }
 
@@ -484,8 +412,6 @@ mod tests {
             dna_iupac(ref_allele),
             dna_iupac(alt_allele),
             Some(Strand::Positive),
-            false,
-            true,
         )
     }
 
@@ -496,8 +422,6 @@ mod tests {
             rna_iupac(ref_allele),
             rna_iupac(alt_allele),
             Some(Strand::Positive),
-            false,
-            true,
         )
     }
 
@@ -668,8 +592,6 @@ mod tests {
         assert!(s.contains("chr1:123"));
         assert!(s.contains("A>G"));
         assert!(s.contains("delta: 0"));
-        assert!(s.contains("class: SNV"));
-        assert!(s.contains("multiallelic:false"));
     }
 
     // --- RNA smoke tests (generic over Base works) ---
