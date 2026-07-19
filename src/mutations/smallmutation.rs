@@ -23,6 +23,8 @@ pub type RnaSmallMutation = SmallMutation<RnaBase>;
 /// - `reference` and `alternative` are stored **as provided** by the caller.
 ///   No left/right trimming, normalization, or decomposition is performed.
 ///
+/// ## Invariants (enforced by constructor)
+/// Reference allele must have at least one base
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmallMutation<B: Base> {
     /// Chromosome / Contig of mutation
@@ -84,7 +86,7 @@ impl<B: Base> SmallMutation<B> {
     /// # Parameters
     /// - `chromosome`: reference sequence / contig name (e.g. `"chr1"`)
     /// - `position`: 1-based start coordinate
-    /// - `reference`: reference allele sequence
+    /// - `reference`: reference allele sequence. Must have length of at least one.
     /// - `alternative`: alternative allele sequence
     /// - `strand`: Strand
     pub fn new(
@@ -340,7 +342,7 @@ impl SmallMutationType {
     ///
     ///
     /// # Notes
-    /// - This function is purely *shape-based* and does not inspect sequence content.
+    /// - This function is purely *length-based* and does not inspect sequence content.
     /// - A length of `0` is invalid for VCF alleles; this function currently maps
     ///   `reflen == 0 && altlen == 0` to [`SmallMutationType::MNV`] and assumes such cases are rejected
     ///   elsewhere.
