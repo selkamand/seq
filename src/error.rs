@@ -63,6 +63,9 @@ pub enum SequenceError {
         "cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
     )]
     CannotConvertDegenerateSequence { position: Pos, base: char },
+
+    #[error("cannot create an empty sequence, please use an option type instead")]
+    CannotCreateEmptySequence,
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]

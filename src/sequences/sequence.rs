@@ -15,8 +15,12 @@ pub(crate) type Result<T> = std::result::Result<T, SequenceError>;
 /// The alphabet determines which characters are considered valid and
 /// influences downstream operations (e.g. reverse complementing).
 ///
-/// This struct is not appropriate for larger-than-memory sequences.
-/// It also completely ignores softmasks (for now)
+/// # Invariants
+/// Sequences are never empty. If you need to represent empty sequences using the Option type (None).
+///
+/// # Limitations
+/// This type is not appropriate for larger-than-memory sequences.
+/// It also completely ignores softmasks (for now).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Seq<B: Base> {
     seq: Vec<B>, // A vector of objects with the Base Trait
@@ -327,8 +331,9 @@ impl<B: Base> Seq<B> {
         !self.any_ambiguous()
     }
 
-    /// Returns `true` if the sequence contains zero bases.
-    pub fn is_empty(&self) -> bool {
+    /// Should always return `true` since empty sequences can never be created.
+    /// This invariant is enforced by Seq::new()
+    pub const fn is_empty(&self) -> bool {
         self.seq.is_empty()
     }
 
@@ -717,14 +722,20 @@ impl<B: Base> Seq<B> {
     }
 
     /// Mutate a sequence changing an interval to a new sequence
-    pub fn mutate(&mut self, interval: Interval, new: &Seq<B>) -> Result<Self> {
+    ///
+    /// ## Params
+    ///
+    /// - **interval**: the [`Interval`] containing the subsequence to change
+    /// - **new**: the [`Seq`] to change the subsequence to. If `None` will just delete the interval
+    pub fn mutate(&mut self, interval: Interval, new: Option<&Seq<B>>) -> Result<Self> {
         let mut cloned_seq = self.clone();
         cloned_seq.mutate_in_place(interval, new)?;
 
         Ok(cloned_seq)
     }
 
-    pub fn mutate_in_place(&mut self, interval: Interval, new: &Seq<B>) -> Result<()> {
+    /// A version of  a sequence changing an interval to a new sequence
+    pub fn mutate_in_place(&mut self, interval: Interval, new: Option<&Seq<B>>) -> Result<()> {
         if !self.is_interval_valid(&interval) {
             return Err(SequenceError::FailedMutateInvalidInterval {
                 interval,
@@ -735,27 +746,43 @@ impl<B: Base> Seq<B> {
         let start = interval.start().as_0based_index();
         let end = interval.end().get();
 
-        // Replace range with expected values
-        self.seq.splice(start..end, new.as_slice().iter().cloned());
+        // If new has some value, run the replacement
+        if let Some(replacement) = new {
+            self.seq
+                .splice(start..end, replacement.as_slice().iter().cloned());
+        }
+        // Otherwise just delete
+        else {
+            self.seq.drain(start..end);
+        }
 
         Ok(())
     }
+
     // <- Constructors ->
 
-    /// Parses and validates a sequence from a string slice.
+    /// Parses and validates a sequence ([`Seq`]) from a string slice.
     ///
     /// This is the main construction “gatekeeper”: it converts each ASCII character
     /// into a base of type `B` using [`Base::try_from_ascii`].
     ///
     /// # Errors
     ///
-    /// Returns a `Error` if any character is not valid for the alphabet implied by `B`.
+    /// Returns a `SequenceError::CannotCreateEmptySequence` if user tries to create an empty sequence.
+    /// Returns a `SequenceError::InvalidBase` if any character is not valid for the alphabet implied by `B`.
+    ///
+    /// # Panics
+    ///
+    /// Function should never panic
     ///
     /// # Notes
     ///
     /// - Parsing is byte-based (`&str` is interpreted as ASCII nucleotide symbols).
     /// - Lowercase letters are accepted if `try_from_ascii` is case-insensitive.
     pub fn new(sequence: &str) -> Result<Self> {
+        if sequence.is_empty() {
+            return Err(SequenceError::CannotCreateEmptySequence);
+        }
         let mut seq = Vec::with_capacity(sequence.len());
         for &byte in sequence.as_bytes() {
             seq.push(B::try_from_ascii(byte)?);
@@ -1002,6 +1029,8 @@ macro_rules! dna {
 
 #[cfg(test)]
 mod tests {
+    use crate::pos;
+
     use super::*;
 
     // --- Helpers ---
@@ -1019,6 +1048,11 @@ mod tests {
     #[test]
     fn new_rejects_invalid_characters_dna() {
         assert!(IupacDnaSeq::new("ACGTX").is_err());
+    }
+
+    #[test]
+    fn new_rejects_empty_sequences() {
+        assert!(IupacDnaSeq::new("").is_err());
     }
 
     #[test]
@@ -1043,13 +1077,15 @@ mod tests {
     // --- Basic properties ---
 
     #[test]
-    fn len_and_is_empty_work() {
-        let s = dna("");
-        assert_eq!(s.len(), 0);
-        assert!(s.is_empty());
+    fn len_works() {
+        // Note empty sequences are not permitted and return an error, so is_empty should always
+        // return false
+        let s = dna("A");
+        assert_eq!(s.len(), 1);
+        assert!(!s.is_empty());
 
-        let s2 = dna("A");
-        assert_eq!(s2.len(), 1);
+        let s2 = dna("ACTG");
+        assert_eq!(s2.len(), 4);
         assert!(!s2.is_empty());
     }
 
@@ -1059,11 +1095,82 @@ mod tests {
         assert_eq!(rna("AC").alphabet(), Alphabet::RNA);
     }
 
+    // --- Mutate in place ---
+    #[test]
+    fn mutate_in_place_works() {
+        // Create mutable sequences
+        let mut seq1 = dna!("ACT");
+        let mut seq2 = dna!("ACT");
+        let mut seq3 = dna!("ACT");
+
+        // Delete the first two bases in seq1
+        seq1.mutate_in_place(Interval::new(pos!(1), pos!(2)).unwrap(), None)
+            .expect("mutate in place throws no error");
+
+        // Check deletion worked
+        assert_eq!(seq1, dna!("T"));
+
+        // Delete all three bases of seq2 and insert 4 'G's
+        seq2.mutate_in_place(
+            Interval::new(pos!(1), pos!(3)).unwrap(),
+            Some(&dna!("GGGG")),
+        )
+        .expect("mutate in place throws no error");
+
+        // Check that insertion and deletion worked
+        assert_eq!(seq2, dna!("GGGG"));
+
+        // Simple single base change (1:A>T)
+        seq3.mutate_in_place(Interval::new(pos!(1), pos!(1)).unwrap(), Some(&dna!("T")))
+            .expect("mutate in place throws no error");
+
+        // Check single base change worked
+        assert_eq!(seq3, dna!("TCT"));
+    }
+
+    // TODO: update mutate_works to drop 'mut' once
+    #[test]
+    fn mutate_works() {
+        // Create mutable sequences
+        let mut seq1 = dna!("ACT");
+        let mut seq2 = dna!("ACT");
+        let mut seq3 = dna!("ACT");
+
+        // Delete the first two bases in seq1
+        let seq1_mutated = seq1
+            .mutate(Interval::new(pos!(1), pos!(2)).unwrap(), None)
+            .expect("mutate in place throws no error");
+
+        // Check deletion worked and original is unchanged
+        assert_eq!(seq1_mutated, dna!("T"));
+        assert_eq!(seq1, dna!("ACT"));
+
+        // Delete all three bases of seq2 and insert 4 'G's
+        let seq2_mutated = seq2
+            .mutate(
+                Interval::new(pos!(1), pos!(3)).unwrap(),
+                Some(&dna!("GGGG")),
+            )
+            .expect("mutate in place throws no error");
+
+        // Check that insertion and deletion worked (and original is unchanged)
+        assert_eq!(seq2_mutated, dna!("GGGG"));
+        assert_eq!(seq2, dna!("ACT"));
+
+        // Simple single base change (1:A>T)
+        let seq3_mutated = seq3
+            .mutate(Interval::new(pos!(1), pos!(1)).unwrap(), Some(&dna!("T")))
+            .expect("mutate in place throws no error");
+
+        // Check single base change worked
+        assert_eq!(seq3_mutated, dna!("TCT"));
+        assert_eq!(seq3, dna!("ACT"));
+    }
+
     // --- middlebase / pyrimidine_centered ---
 
     #[test]
-    fn middlebase_none_for_empty_or_even() {
-        assert!(dna("").middlebase().is_none());
+    fn middlebase_none_for_even() {
         assert!(dna("AC").middlebase().is_none());
         assert!(dna("ACGT").middlebase().is_none());
     }
@@ -1162,9 +1269,6 @@ mod tests {
 
     #[test]
     fn is_palindromic_handles_edge_cases() {
-        // Empty: empty sequences are not considered palindromic
-        assert!(!dna("").is_palindromic_checked().unwrap());
-
         // Length-1 DNA cannot be palindromic unless the base equals its own complement.
         // For DNA A<->T and C<->G, so no unambiguous base is self-complementary.
         assert!(!dna("A").is_palindromic_checked().unwrap());

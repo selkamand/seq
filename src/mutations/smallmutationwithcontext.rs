@@ -349,27 +349,26 @@ mod tests {
     use crate::{
         base::DnaBase,
         coords::{Region, Strand},
+        dna, pos,
         sequences::DnaSeq,
     };
 
     fn dna_mutation_with_context(
         position: usize,
         reference: &str,
-        alternative: &str,
+        alternative: Option<&str>,
     ) -> MutationWithContext<DnaBase> {
+        let alt = alternative.map(|s| DnaSeq::new(s).unwrap());
         let mutation = SmallMutation::new(
             "chr1".to_string(),
             Pos::new(position).unwrap(),
             DnaSeq::new(reference).unwrap(),
-            DnaSeq::new(alternative).unwrap(),
+            alt,
             Some(Strand::Positive),
         );
         let context = SourcedSeq::new(
-            DnaSeq::new("ACGTACGT").unwrap(),
-            Region::new(
-                "chr1",
-                Interval::new(Pos::new(100).unwrap(), Pos::new(107).unwrap()).unwrap(),
-            ),
+            dna!("ACGTACGT"),
+            Region::new("chr1", Interval::new(pos!(100), pos!(107)).unwrap()),
             Some(Strand::Positive),
         );
 
@@ -378,7 +377,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_snv_alt_base() {
-        let mutation = dna_mutation_with_context(103, "T", "A");
+        let mutation = dna_mutation_with_context(103, "T", Some("A"));
         let mutated = DnaSeq::new("ACGAACGT").unwrap();
         let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -394,7 +393,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_mnv_alt_bases() {
-        let mutation = dna_mutation_with_context(103, "TAC", "GCA");
+        let mutation = dna_mutation_with_context(103, "TAC", Some("GCA"));
         let mutated = DnaSeq::new("ACGGCAGT").unwrap();
         let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(6).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -410,7 +409,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_entire_insertion_alt_allele() {
-        let mutation = dna_mutation_with_context(103, "T", "TGG");
+        let mutation = dna_mutation_with_context(103, "T", Some("TGG"));
         let mutated = DnaSeq::new("ACGTGGACGT").unwrap();
         let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(6).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -426,7 +425,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_non_empty_deletion_alt_allele() {
-        let mutation = dna_mutation_with_context(103, "TAC", "T");
+        let mutation = dna_mutation_with_context(103, "TAC", Some("T"));
         let mutated = DnaSeq::new("ACGTGT").unwrap();
         let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -442,7 +441,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_dims_zero_length_alt_without_highlighted_bases() {
-        let mutation = dna_mutation_with_context(103, "TAC", "");
+        let mutation = dna_mutation_with_context(103, "TAC", None);
         let mutated = DnaSeq::new("ACGGT").unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
 
@@ -457,7 +456,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_shorter_replacement_alt_allele() {
-        let mutation = dna_mutation_with_context(103, "TAC", "G");
+        let mutation = dna_mutation_with_context(103, "TAC", Some("G"));
         let mutated = DnaSeq::new("ACGGGT").unwrap();
         let interval = Interval::new(Pos::new(4).unwrap(), Pos::new(4).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -473,7 +472,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_first_base_alt_allele() {
-        let mutation = dna_mutation_with_context(100, "A", "G");
+        let mutation = dna_mutation_with_context(100, "A", Some("G"));
         let mutated = DnaSeq::new("GCGTACGT").unwrap();
         let interval = Interval::new(Pos::new(1).unwrap(), Pos::new(1).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();
@@ -489,7 +488,7 @@ mod tests {
 
     #[test]
     fn format_mutated_sequence_highlights_last_base_alt_allele() {
-        let mutation = dna_mutation_with_context(107, "T", "A");
+        let mutation = dna_mutation_with_context(107, "T", Some("A"));
         let mutated = DnaSeq::new("ACGTACGA").unwrap();
         let interval = Interval::new(Pos::new(8).unwrap(), Pos::new(8).unwrap()).unwrap();
         let (applied, alt_interval) = mutation.apply_mutation_with_alt_interval();

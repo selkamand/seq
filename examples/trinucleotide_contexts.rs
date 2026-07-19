@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Chr1".to_owned(),
         pos!(2000),
         dna!("A"),
-        dna!("C"),
+        Some(dna!("C")),
         Some(Strand::Positive),
     );
 

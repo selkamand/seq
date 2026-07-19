@@ -12,7 +12,7 @@ fn main() {
         "chr1".to_owned(),
         pos!(2004),
         dna!("A"),
-        dna!("G"),
+        Some(dna!("G")),
         Some(Strand::Positive),
     );
 
@@ -50,7 +50,7 @@ fn main() {
         "chr1".to_owned(),
         pos!(2004),
         dna!("A"),
-        dna!(""),
+        None,
         Some(Strand::Positive),
     );
 

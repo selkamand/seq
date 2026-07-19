@@ -23,8 +23,10 @@ pub type RnaSmallMutation = SmallMutation<RnaBase>;
 /// - `reference` and `alternative` are stored **as provided** by the caller.
 ///   No left/right trimming, normalization, or decomposition is performed.
 ///
-/// ## Invariants (enforced by constructor)
-/// Reference allele must have at least one base
+/// ## Invariants
+/// Reference allele must have at least one base (enforced by [`Seq::new()`] which prevents
+/// construction of empty sequences)
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmallMutation<B: Base> {
     /// Chromosome / Contig of mutation
@@ -34,8 +36,8 @@ pub struct SmallMutation<B: Base> {
     /// Original base sequence in reference
     reference: Seq<B>,
 
-    /// Mutation of sequence
-    alternative: Seq<B>,
+    /// Mutation of sequence (None = empty sequence)
+    alternative: Option<Seq<B>>,
 
     /// If mutation was on a double stranded molecule like DNA
     /// then field indicates the strand of the reference genome the reference allele was on.
@@ -60,7 +62,10 @@ impl<B: Base> fmt::Display for SmallMutation<B> {
             self.chromosome,
             self.position,
             self.reference,
-            self.alternative,
+            self.alternative
+                .as_ref()
+                .map(|x| x.to_string())
+                .unwrap_or("None".to_string()),
             self.strand
                 .map(|opt| opt.to_string())
                 .unwrap_or("None".to_string()),
@@ -86,14 +91,18 @@ impl<B: Base> SmallMutation<B> {
     /// # Parameters
     /// - `chromosome`: reference sequence / contig name (e.g. `"chr1"`)
     /// - `position`: 1-based start coordinate
-    /// - `reference`: reference allele sequence. Must have length of at least one.
-    /// - `alternative`: alternative allele sequence
+    /// - `reference`: reference allele sequence
+    /// - `alternative`: alternative allele sequence. Option type. `None` indicates a deletion
     /// - `strand`: Strand
+    ///
+    /// ## Invariants
+    /// Reference allele must have at least one base (enforced by [`Seq::new()`] which prevents
+    /// construction of empty sequences)
     pub fn new(
         chromosome: String,
         position: Pos,
         reference: Seq<B>,
-        alternative: Seq<B>,
+        alternative: Option<Seq<B>>,
         strand: Option<Strand>,
     ) -> Self {
         Self {
@@ -123,9 +132,9 @@ impl<B: Base> SmallMutation<B> {
         &self.reference
     }
 
-    /// Returns the alternative allele sequence.
-    pub fn alternative(&self) -> &Seq<B> {
-        &self.alternative
+    /// Returns the alternative allele sequence if present.
+    pub fn alternative(&self) -> Option<&Seq<B>> {
+        self.alternative.as_ref()
     }
 
     /// Returns the strand of the source molecule that contains
@@ -145,9 +154,12 @@ impl<B: Base> SmallMutation<B> {
 
     /// Return the length of the alternative allele in bases.
     ///
-    /// This is a convenience wrapper around [`Seq::len`].
+    /// Returns 0 if alternative is None or [`Seq::len`] if alternative is [`Some`].
     pub fn altlen(&self) -> usize {
-        self.alternative.len()
+        match &self.alternative {
+            Some(seq) => seq.len(),
+            None => 0usize,
+        }
     }
 
     /// Return the signed size change implied by this mutation.
@@ -192,13 +204,22 @@ impl<B: Base> SmallMutation<B> {
             return None;
         }
 
+        // Get reference base (return None if not a single base)
         let r = self.reference.as_slice().first()?;
-        let a = self.alternative.as_slice().first()?;
 
+        // Get alternative base (return None if not a single base)
+        let Some(a_seq) = self.alternative() else {
+            return None;
+        };
+        let a = a_seq.as_slice().first()?;
+
+        // Get ChemClass of each base
         let r_chemical_class = r.try_chemical_class().ok()?;
         let a_chemical_class = a.try_chemical_class().ok()?;
 
+        // Compute TiTv
         let titv = TiTv::from_chemical_class(r_chemical_class, a_chemical_class);
+
         Some(titv)
     }
 
@@ -234,7 +255,7 @@ impl<B: Base> SmallMutation<B> {
     ///     "chr1".to_string(),
     ///     Pos::new(123).unwrap(),
     ///     DnaSeq::new("A").unwrap(),
-    ///     DnaSeq::new("G").unwrap(),
+    ///     Some(DnaSeq::new("G").unwrap()),
     ///     Some(Strand::Positive),
     /// );
     ///
@@ -247,6 +268,8 @@ impl<B: Base> SmallMutation<B> {
             self.position(),
             self.reference(),
             self.alternative()
+                .map(|s| s.to_string())
+                .unwrap_or(String::from("None"))
         )
     }
 
@@ -258,7 +281,9 @@ impl<B: Base> SmallMutation<B> {
             self.chromosome(),
             self.position(),
             self.reference().format_with_colour(),
-            self.alternative().format_with_colour()
+            self.alternative()
+                .map(|s| s.format_with_colour())
+                .unwrap_or(String::from("None"))
         )
     }
 
@@ -273,7 +298,7 @@ impl<B: Base> SmallMutation<B> {
             chromosome: self.chromosome.clone(),
             position: self.position,
             reference: self.reference.reverse_complement(),
-            alternative: self.alternative.reverse_complement(),
+            alternative: self.alternative.as_ref().map(|s| s.reverse_complement()),
             strand: newstrand,
         }
     }
@@ -412,7 +437,7 @@ mod tests {
             "chr1".to_string(),
             Pos::new(123).unwrap(),
             dna_iupac(ref_allele),
-            dna_iupac(alt_allele),
+            Some(dna_iupac(alt_allele)),
             Some(Strand::Positive),
         )
     }
@@ -422,7 +447,7 @@ mod tests {
             "tx1".to_string(),
             Pos::new(7).unwrap(),
             rna_iupac(ref_allele),
-            rna_iupac(alt_allele),
+            Some(rna_iupac(alt_allele)),
             Some(Strand::Positive),
         )
     }

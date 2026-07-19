@@ -119,10 +119,11 @@ impl<B: Base> TryFrom<&SmallMutation<B>> for SingleBaseSubstitution<B> {
 
     fn try_from(value: &SmallMutation<B>) -> Result<Self, Self::Error> {
         ensure_snv(value)?;
-        Self::new(
-            value.reference().as_slice()[0],
-            value.alternative().as_slice()[0],
-        )
+
+        // Unwrap alternative allele option
+        let alt = value.alternative().expect("Bug in crate: Tried to convert a SmallMutation to a SingleBaseSubstitution when alternative base is None - which is means mutation is NOT a SNV. This should have been identified by the `ensure_snv` function and returned as an error type, but you seeing this message means for some reason this didn't happen. Please report this issue to the packages github issue tracker");
+
+        Self::new(value.reference().as_slice()[0], alt.as_slice()[0])
     }
 }
 
@@ -132,17 +133,20 @@ impl TryFrom<&SmallMutation<IupacDnaBase>> for DnaSingleBaseSubstitution {
     fn try_from(value: &SmallMutation<IupacDnaBase>) -> Result<Self, Self::Error> {
         ensure_snv(value)?;
 
+        // Unwrap alternative allele option
+        let alt = value.alternative().expect("Bug in crate: Tried to convert a SmallMutation to a SingleBaseSubstitution when alternative base is None - which is means mutation is NOT a SNV. This should have been identified by the `ensure_snv` function and returned as an error type, but you seeing this message means for some reason this didn't happen. Please report this issue to the packages github issue tracker");
+
         let reference = value.reference().as_slice()[0]
             .try_to_concrete()
             .ok_or_else(|| SingleBaseSubstitutionError::AmbiguousReference {
                 base: value.reference().as_slice()[0].to_char(),
             })?;
 
-        let alternative = value.alternative().as_slice()[0]
-            .try_to_concrete()
-            .ok_or_else(|| SingleBaseSubstitutionError::AmbiguousAlternative {
-                base: value.alternative().as_slice()[0].to_char(),
-            })?;
+        let alternative = alt.as_slice()[0].try_to_concrete().ok_or_else(|| {
+            SingleBaseSubstitutionError::AmbiguousAlternative {
+                base: alt.as_slice()[0].to_char(),
+            }
+        })?;
 
         Self::new(reference, alternative)
     }
@@ -154,16 +158,20 @@ impl TryFrom<&SmallMutation<IupacRnaBase>> for RnaSingleBaseSubstitution {
     fn try_from(value: &SmallMutation<IupacRnaBase>) -> Result<Self, Self::Error> {
         ensure_snv(value)?;
 
+        // Unwrap alternative allele option
+        let alt = value.alternative().expect("Bug in crate: Tried to convert a SmallMutation to a SingleBaseSubstitution when alternative base is None - which is means mutation is NOT a SNV. This should have been identified by the `ensure_snv` function and returned as an error type, but you seeing this message means for some reason this didn't happen. Please report this issue to the packages github issue tracker");
+
         let reference = value.reference().as_slice()[0]
             .try_to_concrete()
             .ok_or_else(|| SingleBaseSubstitutionError::AmbiguousReference {
                 base: value.reference().as_slice()[0].to_char(),
             })?;
-        let alternative = value.alternative().as_slice()[0]
-            .try_to_concrete()
-            .ok_or_else(|| SingleBaseSubstitutionError::AmbiguousAlternative {
-                base: value.alternative().as_slice()[0].to_char(),
-            })?;
+
+        let alternative = alt.as_slice()[0].try_to_concrete().ok_or_else(|| {
+            SingleBaseSubstitutionError::AmbiguousAlternative {
+                base: alt.as_slice()[0].to_char(),
+            }
+        })?;
 
         Self::new(reference, alternative)
     }
@@ -211,7 +219,7 @@ mod tests {
             "chr1".to_string(),
             Pos::new(1).unwrap(),
             IupacDnaSeq::new(reference).unwrap(),
-            IupacDnaSeq::new(alternative).unwrap(),
+            Some(IupacDnaSeq::new(alternative).unwrap()),
             None,
         )
     }
@@ -268,7 +276,7 @@ mod tests {
             "chr1".to_string(),
             Pos::new(1).unwrap(),
             DnaSeq::new("T").unwrap(),
-            DnaSeq::new("G").unwrap(),
+            Some(DnaSeq::new("G").unwrap()),
             None,
         );
 
