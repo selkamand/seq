@@ -39,9 +39,25 @@ fn main() {
     println!("{}:", context.format_with_colour());
 
     // Create a dedicated MutationWithContext type
-    let mutation_with_context = MutationWithContext::new(mutation, context).unwrap();
+    let mutation_with_context = MutationWithContext::new(mutation, context.clone()).unwrap();
     println!("\n-------------------------");
     println!("Mutation with Context");
     println!("-------------------------");
     println!("{}", mutation_with_context.format_with_colour());
+
+    // Representing Indels
+    let indel = DnaSmallMutation::new(
+        "chr1".to_owned(),
+        pos!(2004),
+        dna!("A"),
+        dna!(""),
+        Some(Strand::Positive),
+    );
+
+    let indelcontext = context.clone();
+    let indel_with_context = MutationWithContext::new(indel, indelcontext).unwrap();
+    println!("\n-------------------------");
+    println!("Indel with Context");
+    println!("-------------------------");
+    println!("{}", indel_with_context.format_with_colour());
 }
