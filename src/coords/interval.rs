@@ -2,25 +2,53 @@
 
 use std::num::NonZeroUsize;
 
-use crate::coords::Pos;
+use crate::coords::{Pos0, Pos1};
 use crate::error::CoordError as Error;
 pub(crate) type Result<T> = std::result::Result<T, Error>;
+
+/// A 0-based inter-residue interval  
+/// 0 is the position before the first residue in a sequence
+///
+/// For the numbering of a the 3 base sequence:
+///  A C T
+/// 0 1 2 3
+///
+/// The interval describing the full sequence is 0-3
+///
+/// # Examples
+/// ```
+/// use seqlib::coords::{Interval, Pos0};
+/// let i = Interval::new(Pos0::from(0), Pos0::from(3));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Interval {
+    start: Pos0,
+    end: Pos0,
+}
+
+impl Interval {
+    /// Create a new inter-residue, zero-based [`Interval`]
+    pub fn new(start: Pos0, end: Pos0) -> Self {
+        Self { start, end }
+    }
+    //TODO: implement  remaining methods for the inter-residue intervals
+}
 
 /// A genomic interval (Start & End)
 /// Both are 1-based and both-end inclusive
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Interval {
-    start: Pos,
-    end: Pos,
+pub struct Interval1 {
+    start: Pos1,
+    end: Pos1,
 }
 
-impl std::fmt::Display for Interval {
+impl std::fmt::Display for Interval1 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.start, self.end)
     }
 }
 
-impl Interval {
+impl Interval1 {
     /// Creates a 1-based inclusive interval from `start` to `end`.
     ///
     /// # Examples
@@ -38,9 +66,12 @@ impl Interval {
     /// # Errors
     ///
     /// Returns [`Error::RangeEndTooSmall`] if `end` is less than `start`.
-    pub fn new(start: Pos, end: Pos) -> Result<Self> {
+    pub fn new(start: Pos1, end: Pos1) -> Result<Self> {
         if end < start {
-            return Err(Error::RangeEndTooSmall { start, end });
+            return Err(Error::RangeEndTooSmall {
+                start: start.into(),
+                end: end.into(),
+            });
         }
         Ok(Self { start, end })
     }
@@ -61,7 +92,7 @@ impl Interval {
     /// assert_eq!(*interval.end(), Pos::new(13)?);
     /// # Ok::<(), seqlib::error::CoordError>(())
     /// ```
-    pub fn around_position(pos: Pos, left: usize, right: usize) -> Self {
+    pub fn around_position(pos: Pos1, left: usize, right: usize) -> Self {
         Self {
             start: pos.saturating_sub(left),
             end: pos.saturating_add(right),
@@ -80,7 +111,7 @@ impl Interval {
     /// assert_eq!(*interval.start(), Pos::new(3)?);
     /// # Ok::<(), seqlib::error::CoordError>(())
     /// ```
-    pub fn start(&self) -> &Pos {
+    pub fn start(&self) -> &Pos1 {
         &self.start
     }
 
@@ -92,11 +123,11 @@ impl Interval {
     /// use seqlib::coords::{Interval, Pos};
     /// use seqlib::pos;
     ///
-    /// let interval = Interval::new(pos!(2), pos!(7)).unwrap();
+    /// let interval = Interval::new(pos1!(2), pos1!(7)).unwrap();
     ///
-    /// assert_eq!(*interval.end(), pos!(7));
+    /// assert_eq!(*interval.end(), pos1!(7));
     /// ```
-    pub fn end(&self) -> &Pos {
+    pub fn end(&self) -> &Pos1 {
         &self.end
     }
 
@@ -208,21 +239,21 @@ impl Interval {
     /// assert_eq!(interval.local_position(Pos::new(14)?), None);
     /// # Ok::<(), seqlib::error::CoordError>(())
     /// ```
-    pub fn local_position(&self, pos: Pos) -> Option<Pos> {
+    pub fn local_position(&self, pos: Pos1) -> Option<Pos1> {
         if pos < self.start || pos > self.end {
             return None;
         }
 
         let local_position = pos.get() - self.start.get() + 1;
-        Pos::new(local_position).ok()
+        Pos1::new(local_position).ok()
     }
 }
 
-impl Default for Interval {
+impl Default for Interval1 {
     fn default() -> Self {
         Self {
-            start: Pos::MIN,
-            end: Pos::MIN,
+            start: Pos1::MIN,
+            end: Pos1::MIN,
         }
     }
 }

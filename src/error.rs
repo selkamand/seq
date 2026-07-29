@@ -1,6 +1,6 @@
 use crate::{
     base::Alphabet,
-    coords::{Interval, Pos},
+    coords::{Interval1, Pos1},
 };
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -21,19 +21,19 @@ pub enum CoordError {
     PositionIsZero,
 
     #[error("position {value} cannot be represented on this platform; max allowed position: {max}")]
-    PositionOverflowU64 { value: u64, max: Pos },
+    PositionOverflowU64 { value: u64, max: Pos1 },
 
     #[error("position {value} cannot be represented on this platform; max allowed position: {max}")]
-    PositionOverflowU32 { value: u32, max: Pos },
+    PositionOverflowU32 { value: u32, max: Pos1 },
 
-    #[error("position underflow: {lhs} - {rhs} would be < 1")]
-    PositionUnderflow { lhs: Pos, rhs: usize },
+    #[error("position underflow: {lhs} - {rhs} would be < {min}")]
+    PositionUnderflow { lhs: usize, rhs: usize, min: usize },
 
     #[error("position overflow: {lhs} + {rhs} would exceed {max}")]
-    PositionOverflowAdd { lhs: Pos, rhs: usize, max: Pos },
+    PositionOverflowAdd { lhs: usize, rhs: usize, max: usize },
 
-    #[error("end position of range cannot be less than start position")]
-    RangeEndTooSmall { start: Pos, end: Pos },
+    #[error("end position of range ({end}) cannot be less than start position ({start})")]
+    RangeEndTooSmall { start: usize, end: usize },
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub enum SequenceError {
 
     #[error("cannot mutate interval: {interval}; it spans beyond sequence length {seqlength}")]
     FailedMutateInvalidInterval {
-        interval: Interval,
+        interval: Interval1,
         seqlength: usize,
     },
 
@@ -62,7 +62,7 @@ pub enum SequenceError {
     #[error(
         "cannot convert degenerate sequence to concrete sequence: ambiguous base '{base}' at position {position}"
     )]
-    CannotConvertDegenerateSequence { position: Pos, base: char },
+    CannotConvertDegenerateSequence { position: Pos1, base: char },
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]

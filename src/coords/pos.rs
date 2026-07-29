@@ -6,6 +6,116 @@ pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 use std::num::NonZeroUsize;
 
+/// A position in a zero-base inter-residue coordinate system
+///
+/// # Example
+/// ```
+/// use seqlib::coords::Pos0;
+///
+/// // Define first position
+/// let position = Pos0::from(0usize);
+///
+/// // Define second position
+/// let position = Pos0::from(1usize);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Pos0(usize);
+impl Pos0 {
+    /// Maximum Allowed Position Value
+    pub const MAX: Self = Self(usize::MAX);
+
+    /// Minimum Allowed Position Value
+    pub const MIN: Self = Self(usize::MIN);
+
+    /// Get position as a usize
+    pub fn get(&self) -> usize {
+        self.0
+    }
+
+    /// Create a Pos from a usize (infallable as any valid usize is a valid position)
+    pub const fn new(position: usize) -> Self {
+        Self(position)
+    }
+
+    // <- Position Shifting ->
+
+    /// Add an offset to this position.
+    ///
+    /// Returns `None` if the result would overflow `usize`.
+    pub fn checked_add(self, offset: usize) -> Option<Self> {
+        let v = self.get().checked_add(offset)?;
+        Some(Self::from(v))
+    }
+
+    /// Add an offset, saturating at `Pos0::MAX` on overflow.
+    pub fn saturating_add(self, offset: usize) -> Self {
+        // Pos::MAX is usize::MAX so we can just use usize saturating_add
+        Self::from(self.get().saturating_add(offset))
+    }
+
+    /// Subtract an offset, saturating at `Pos0::MIN` on underflow.
+    pub fn saturating_sub(self, offset: usize) -> Self {
+        Self::from(self.get().saturating_sub(offset))
+    }
+
+    /// Add an offset to this position.
+    ///
+    /// # Errors
+    /// Returns [`Error::PositionOverflowAdd`] if `self + offset` cannot be represented
+    /// on this platform.
+    pub fn try_add(self, offset: usize) -> Result<Self> {
+        match self.get().checked_add(offset) {
+            Some(p) => Ok(Self::from(p)),
+            None => Err(Error::PositionOverflowAdd {
+                lhs: self.into(),
+                rhs: offset,
+                max: Self::MAX.into(),
+            }),
+        }
+    }
+
+    /// Subtract an offset from this position.
+    ///
+    /// # Errors
+    /// Returns [`Error::PositionUnderflow`] if `self - offset` would be < 1.
+    pub fn try_sub(self, offset: usize) -> Result<Self> {
+        match self.get().checked_sub(offset) {
+            Some(p) => Ok(Pos0::from(p)),
+            None => Err(Error::PositionUnderflow {
+                lhs: self.into(),
+                rhs: offset,
+                min: Self::MIN.into(),
+            }),
+        }
+    }
+}
+
+// Conversions into Pos0
+impl From<usize> for Pos0 {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+impl From<Pos1> for Pos0 {
+    fn from(value: Pos1) -> Self {
+        let x = value.get() - 1; // Can never fail (go below zero) because Pos1 is a NonZeroUsize
+        Self(x)
+    }
+}
+
+// Converions out of Pos0
+impl From<Pos0> for usize {
+    fn from(value: Pos0) -> Self {
+        value.get()
+    }
+}
+
+impl std::fmt::Display for Pos0 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get())
+    }
+}
+
 /// A non-zero 1-based coordinate.
 ///
 /// This type is intended for biological coordinate systems that are conventionally
@@ -21,9 +131,9 @@ use std::num::NonZeroUsize;
 ///   genome/transcript coordinate ranges (32 bits: 4,294,967,295, 64 bits: 18,446,744,073,709,551,615).
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Pos(NonZeroUsize);
+pub struct Pos1(NonZeroUsize);
 
-impl Pos {
+impl Pos1 {
     /// Maximum Allowed Position Value
     pub const MAX: Self = Self(NonZeroUsize::MAX);
 
@@ -59,7 +169,7 @@ impl Pos {
     /// An unchecked constructor that works because all NonZeroUsize values are valid positions.
     /// Powers the pos! macro
     pub const fn new_unchecked(position: NonZeroUsize) -> Self {
-        Pos(position)
+        Pos1(position)
     }
     /// Return the underlying 1-based coordinate as a `usize`.
     pub fn get(self) -> usize {
@@ -78,7 +188,7 @@ impl Pos {
     /// Returns `None` if the result would overflow `usize`.
     pub fn checked_add(self, offset: usize) -> Option<Self> {
         let v = self.get().checked_add(offset)?;
-        Pos::new(v).ok()
+        Pos1::new(v).ok()
     }
 
     /// Add an offset, saturating at `Pos::MAX` on overflow.
@@ -86,13 +196,13 @@ impl Pos {
         let v = self.get().saturating_add(offset);
         // `v` is never 0 here, so `new` cannot fail.
         // But we still avoid unwrap by falling back to MAX defensively.
-        Pos::new(v).unwrap_or(Pos::MAX)
+        Pos1::new(v).unwrap_or(Pos1::MAX)
     }
 
     /// Subtract an offset, saturating at `Pos::MIN` (Position 1) on underflow.
     pub fn saturating_sub(self, offset: usize) -> Self {
         let v = self.get().saturating_sub(offset);
-        Pos::new(v).unwrap_or(Pos::MIN)
+        Pos1::new(v).unwrap_or(Pos1::MIN)
     }
 
     /// Add an offset to this position.
@@ -102,15 +212,15 @@ impl Pos {
     /// on this platform.
     pub fn try_add(self, offset: usize) -> Result<Self> {
         match self.get().checked_add(offset) {
-            Some(v) => Pos::new(v).map_err(|_| Error::PositionOverflowAdd {
-                lhs: self,
+            Some(v) => Pos1::new(v).map_err(|_| Error::PositionOverflowAdd {
+                lhs: self.into(),
                 rhs: offset,
-                max: Pos::MAX,
+                max: Self::MAX.into(),
             }),
             None => Err(Error::PositionOverflowAdd {
-                lhs: self,
+                lhs: self.into(),
                 rhs: offset,
-                max: Pos::MAX,
+                max: Self::MAX.into(),
             }),
         }
     }
@@ -121,13 +231,15 @@ impl Pos {
     /// Returns [`Error::PositionUnderflow`] if `self - offset` would be < 1.
     pub fn try_sub(self, offset: usize) -> Result<Self> {
         match self.get().checked_sub(offset) {
-            Some(v) => Pos::new(v).map_err(|_| Error::PositionUnderflow {
-                lhs: self,
+            Some(v) => Pos1::new(v).map_err(|_| Error::PositionUnderflow {
+                lhs: self.into(),
                 rhs: offset,
+                min: Self::MIN.into(),
             }),
             None => Err(Error::PositionUnderflow {
-                lhs: self,
+                lhs: self.into(),
                 rhs: offset,
+                min: Self::MIN.into(),
             }),
         }
     }
@@ -145,18 +257,18 @@ impl Pos {
     }
 }
 
-impl core::fmt::Display for Pos {
+impl core::fmt::Display for Pos1 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.get())
     }
 }
-impl Default for Pos {
+impl Default for Pos1 {
     fn default() -> Self {
-        Pos::MIN
+        Pos1::MIN
     }
 }
 
-impl TryFrom<u64> for Pos {
+impl TryFrom<u64> for Pos1 {
     type Error = Error;
 
     /// Fallibly convert a `u64` into a 1-based [`Pos`].
@@ -177,15 +289,15 @@ impl TryFrom<u64> for Pos {
         // Fail on 32-bit (or any platform) if it doesn't fit in usize.
         let as_usize = usize::try_from(value).map_err(|_| Error::PositionOverflowU64 {
             value,
-            max: Pos::MAX,
+            max: Pos1::MAX,
         })?;
 
         // as_usize is non-zero because value != 0
-        Pos::new(as_usize)
+        Pos1::new(as_usize)
     }
 }
 
-impl TryFrom<u32> for Pos {
+impl TryFrom<u32> for Pos1 {
     type Error = Error;
 
     /// Fallibly convert a `u32` into a 1-based [`Pos`].
@@ -204,32 +316,37 @@ impl TryFrom<u32> for Pos {
 
         let as_usize = usize::try_from(value).map_err(|_| Error::PositionOverflowU32 {
             value,
-            max: Pos::MAX,
+            max: Pos1::MAX,
         })?;
 
-        Pos::new(as_usize)
+        Pos1::new(as_usize)
     }
 }
 
-impl From<NonZeroUsize> for Pos {
+impl From<NonZeroUsize> for Pos1 {
     fn from(value: NonZeroUsize) -> Self {
         Self::from_nonzero(value)
     }
 }
 
-impl From<Pos> for NonZeroUsize {
-    fn from(value: Pos) -> Self {
+impl From<Pos1> for NonZeroUsize {
+    fn from(value: Pos1) -> Self {
         value.0
     }
 }
 
+impl From<Pos1> for usize {
+    fn from(value: Pos1) -> Self {
+        value.get()
+    }
+}
 /// Construct a [`Pos`] from a **compile-time** integer literal.
 ///
 /// This macro is intended for constant contexts and test code where the position
 /// is known at compile time.
 ///
-/// - `pos!(1)` expands to a `Pos` representing 1.
-/// - `pos!(0)` is rejected (a [`Pos`] is always >= 1).
+/// - `pos1!(1)` expands to a `Pos` representing 1.
+/// - `pos1!(0)` is rejected (a [`Pos`] is always >= 1).
 ///
 /// # Failure mode
 /// This macro does **not** introduce a runtime panic in normal use:
@@ -243,13 +360,13 @@ impl From<Pos> for NonZeroUsize {
 /// use seqlib::coords::{Pos};
 /// use seqlib::pos;
 ///
-/// const P: Pos = pos!(123);
+/// const P: Pos1 = pos1!(123);
 /// assert_eq!(P.get(), 123);
 /// ```
 #[macro_export]
-macro_rules! pos {
+macro_rules! pos1 {
     ($lit:literal) => {{
-        const P: Pos = Pos::new_panic($lit);
+        const P: Pos1 = Pos1::new_panic($lit);
         P
 
         // Safe because 0 is handled above.
@@ -267,59 +384,59 @@ mod tests {
 
     #[test]
     fn new_rejects_zero() {
-        let err = Pos::new(0).unwrap_err();
+        let err = Pos1::new(0).unwrap_err();
         assert_eq!(err, Error::PositionIsZero);
     }
 
     #[test]
     fn new_accepts_one_and_get_roundtrips() {
-        let p = Pos::new(1).unwrap();
+        let p = Pos1::new(1).unwrap();
         assert_eq!(p.get(), 1);
 
-        let p2 = Pos::new(42).unwrap();
+        let p2 = Pos1::new(42).unwrap();
         assert_eq!(p2.get(), 42);
     }
 
     #[test]
     fn min_and_max_constants_are_sane() {
-        assert_eq!(Pos::MIN.get(), 1);
-        assert_eq!(Pos::MAX.get(), usize::MAX);
-        assert!(Pos::MAX.get() >= Pos::MIN.get());
+        assert_eq!(Pos1::MIN.get(), 1);
+        assert_eq!(Pos1::MAX.get(), usize::MAX);
+        assert!(Pos1::MAX.get() >= Pos1::MIN.get());
     }
 
     #[test]
     fn display_prints_numeric_value() {
-        let p = Pos::new(123).unwrap();
+        let p = Pos1::new(123).unwrap();
         assert_eq!(p.to_string(), "123");
     }
 
     #[test]
     fn try_from_u32_rejects_zero() {
-        let err = Pos::try_from(0_u32).unwrap_err();
+        let err = Pos1::try_from(0_u32).unwrap_err();
         assert_eq!(err, Error::PositionIsZero);
     }
 
     #[test]
     fn try_from_u64_rejects_zero() {
-        let err = Pos::try_from(0_u64).unwrap_err();
+        let err = Pos1::try_from(0_u64).unwrap_err();
         assert_eq!(err, Error::PositionIsZero);
     }
 
     #[test]
     fn try_from_u32_accepts_nonzero() {
-        let p = Pos::try_from(1_u32).unwrap();
+        let p = Pos1::try_from(1_u32).unwrap();
         assert_eq!(p.get(), 1);
 
-        let p2 = Pos::try_from(123_u32).unwrap();
+        let p2 = Pos1::try_from(123_u32).unwrap();
         assert_eq!(p2.get(), 123);
     }
 
     #[test]
     fn try_from_u64_accepts_nonzero_that_fits() {
-        let p = Pos::try_from(1_u64).unwrap();
+        let p = Pos1::try_from(1_u64).unwrap();
         assert_eq!(p.get(), 1);
 
-        let p2 = Pos::try_from(123_u64).unwrap();
+        let p2 = Pos1::try_from(123_u64).unwrap();
         assert_eq!(p2.get(), 123);
     }
 
@@ -331,7 +448,7 @@ mod tests {
         // On 16-bit: usize::MAX is 65535, so 65536 should overflow.
         let v: u32 = (u16::MAX as u32) + 1;
 
-        let err = Pos::try_from(v).unwrap_err();
+        let err = Pos1::try_from(v).unwrap_err();
         match err {
             Error::PositionOverflowU32 { value, max } => {
                 assert_eq!(value, v);
@@ -347,7 +464,7 @@ mod tests {
         // On 16/32-bit: pick a value > usize::MAX.
         let v: u64 = (usize::MAX as u64) + 1;
 
-        let err = Pos::try_from(v).unwrap_err();
+        let err = Pos1::try_from(v).unwrap_err();
         match err {
             Error::PositionOverflowU64 { value, max } => {
                 assert_eq!(value, v);
@@ -363,7 +480,7 @@ mod tests {
         // On 64-bit platforms, any non-zero u64 should fit into usize? Not quite:
         // usize::MAX == u64::MAX on 64-bit, so yes, all non-zero u64 fit.
         let v: u64 = u64::MAX;
-        let p = Pos::try_from(v).unwrap();
+        let p = Pos1::try_from(v).unwrap();
         assert_eq!(p.get() as u64, v);
     }
 }
@@ -374,26 +491,27 @@ mod pos_arith_tests {
 
     #[test]
     fn try_add_ok() {
-        let p = Pos::new(10).unwrap();
+        let p = Pos1::new(10).unwrap();
         let q = p.try_add(5).unwrap();
         assert_eq!(q.get(), 15);
     }
 
     #[test]
     fn try_sub_ok() {
-        let p = Pos::new(10).unwrap();
+        let p = Pos1::new(10).unwrap();
         let q = p.try_sub(3).unwrap();
         assert_eq!(q.get(), 7);
     }
 
     #[test]
     fn try_sub_underflow_to_zero_errors() {
-        let p = Pos::new(1).unwrap();
+        let p = Pos1::new(1).unwrap();
         let err = p.try_sub(1).unwrap_err();
         match err {
-            Error::PositionUnderflow { lhs, rhs } => {
-                assert_eq!(lhs, p);
+            Error::PositionUnderflow { lhs, rhs, min } => {
+                assert_eq!(lhs, p.get());
                 assert_eq!(rhs, 1);
+                assert_eq!(min, Pos1::MIN.get());
             }
             other => panic!("expected PositionUnderflow, got {other:?}"),
         }
@@ -401,12 +519,13 @@ mod pos_arith_tests {
 
     #[test]
     fn try_sub_underflow_below_zero_errors() {
-        let p = Pos::new(1).unwrap();
+        let p = Pos1::new(1).unwrap();
         let err = p.try_sub(2).unwrap_err();
         match err {
-            Error::PositionUnderflow { lhs, rhs } => {
-                assert_eq!(lhs, p);
+            Error::PositionUnderflow { lhs, rhs, min } => {
+                assert_eq!(lhs, p.get());
                 assert_eq!(rhs, 2);
+                assert_eq!(min, Pos1::MIN.get());
             }
             other => panic!("expected PositionUnderflow, got {other:?}"),
         }
@@ -414,13 +533,13 @@ mod pos_arith_tests {
 
     #[test]
     fn try_add_overflow_errors() {
-        let p = Pos::MAX;
+        let p = Pos1::MAX;
         let err = p.try_add(1).unwrap_err();
         match err {
             Error::PositionOverflowAdd { lhs, rhs, max } => {
-                assert_eq!(lhs, p);
+                assert_eq!(lhs, p.get());
                 assert_eq!(rhs, 1);
-                assert_eq!(max, Pos::MAX);
+                assert_eq!(max, Pos1::MAX.get());
             }
             other => panic!("expected PositionOverflowAdd, got {other:?}"),
         }
